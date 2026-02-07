@@ -1,178 +1,222 @@
 
 
-# Malaysian Food Price Tracker -- Overhaul Plan
+# Comprehensive Data Pipeline Fix, Expansion, and About Page
 
-## Summary of Changes
+## Summary
 
-Four areas of work: (1) current prices grid, (2) expanded basket items, (3) bilingual Chinese/English with Chinese as default, (4) full visual redesign in Eslite-inspired style.
-
----
-
-## About Data Legitimacy
-
-The existing ~5,166 price records are **synthetically generated** by the backfill edge function. They use a compound monthly inflation formula (e.g. chicken at 1%/month, eggs at 1.5%/month) with sine-wave noise -- not real market data.
-
-The daily scraper attempts to pull from KPDN PriceCatcher via Firecrawl but usually falls back to +/-2% random variance from the last known price. This means almost all data points are simulated.
-
-**Recommendation**: Add a clear disclaimer in the sidebar indicating that historical data is modeled/estimated. Real scraping accuracy can be improved separately. The synthetic data is directionally reasonable but should not be presented as factual market prices.
+Five areas of work: (1) fix CPI sync timeout, (2) clean sugar data anomaly and add tighter price bounds, (3) add 7 new vegetable and fruit items, (4) create an About/Methodology page, (5) improve item organization in UI.
 
 ---
 
-## 1. Current Prices Grid
+## 1. Fix CPI Sync Timeout
 
-**New component**: `CurrentPricesGrid` in the sidebar, showing a 2x2 (expanding to 3-column grid on wider sidebars) layout of today's latest prices for all tracked items.
+**Problem**: The `indicators` table is completely empty. The CPI sync in `sync-dosm` fetches from `api.data.gov.my/opendosm?id=cpi_core` but times out because it downloads all divisions (food, transport, housing, etc.) across all dates, then filters client-side for `division === "overall"`.
 
-- Fetches latest prices via a new `useLatestPrices` hook that queries `food_prices` for the most recent date, grouped by item
-- Each cell shows the item name (in current language), price in RM, and a small up/down indicator vs. previous day
-- Clicking an item cell updates the main chart to that item
-- Placed above the stat card in the sidebar
+**Fix**: Add server-side filtering to the API request:
+- Use `&filter=division@overall` parameter to request only the "overall" division
+- Add `&date_start=2024-01-01` to limit to relevant date range
+- Reduce pagination to avoid edge function timeout (max 50s)
+- If the API doesn't support those filters, reduce the loop cap and process faster
+
+**Expected result**: ~24 monthly CPI records (Jan 2024 to present) inserted into `indicators` table.
 
 ---
 
-## 2. Expanded Basket Items
+## 2. Fix Sugar Data Anomaly
 
-Add **4 new items** to broaden coverage. These are common Malaysian staples:
+**Problem**: On `2025-01-09`, sugar shows RM282.85 instead of ~RM2.87. This cascades to the basket total (RM325.55). The current price filter (`price > 0 && price < 500`) is too loose.
 
-| DB Key | Chinese | English | Base Price (RM) | Monthly Rate |
-|--------|---------|---------|-----------------|--------------|
-| `kangkung` | 空心菜 | Kangkung | 3.50 | 1.4% |
-| `onion` | 洋葱 | Onion | 3.80 | 1.6% |
-| `sugar` | 白糖 | Sugar | 2.85 | 0.5% |
-| `cookingoil` | 食用油 | Cooking Oil | 6.90 | 1.0% |
+**Root cause**: Likely a malformed CSV line where the price field contained a concatenated value, or a genuinely erroneous data point in the PriceCatcher CSV.
 
-**Changes required**:
+**Fix**:
+1. Delete the bad record and its corrupted basket entry for 2025-01-09
+2. Re-sync January 2025 data with tighter bounds
+3. Add per-item price ceiling in the sync function:
+
+```text
+Item-specific max prices (RM per unit):
+chicken:    25    (1kg, typically 8-12)
+eggs:       15    (10 pcs, typically 4-6)
+tomato:     20    (1kg, typically 4-8)
+longbeans:  20    (1kg, typically 5-10)
+rice:       10    (per kg after /10, typically 3-5)
+milk:       20    (1L, typically 6-9)
+kangkung:   15    (1kg, typically 3-7)
+onion:      15    (1kg, typically 3-7)
+sugar:      10    (1kg, typically 2-4)
+cookingoil: 15    (1kg, typically 4-8)
+(new items: similar bounds)
+```
+
+This replaces the blanket `price < 500` check with item-aware validation.
+
+---
+
+## 3. Add Vegetables and Fruits
+
+Add 7 new items from PriceCatcher, all priced per kg for unit consistency.
+
+### New Vegetables (3 items)
+
+| DB Key | Chinese | English | PriceCatcher Codes | Notes |
+|--------|---------|---------|-------------------|-------|
+| `chili` | 辣椒 | Chili | 92 (hijau), 93 (merah kulai), 94 (merah minyak) | Average across green and red varieties |
+| `cabbage` | 包菜 | Cabbage | 104 (import China), 105 (tempatan), 1396, 1458 | All per kg |
+| `spinach` | 菠菜 | Spinach | 1556 (bayam hijau), 1557 (bayam merah) | Bayam |
+
+### New Fruits (4 items)
+
+| DB Key | Chinese | English | PriceCatcher Codes | Notes |
+|--------|---------|---------|-------------------|-------|
+| `papaya` | 木瓜 | Papaya | 16 (betik biasa) | Per kg |
+| `banana` | 香蕉 | Banana | 18 (pisang berangan) | Per kg, most common variety |
+| `watermelon` | 西瓜 | Watermelon | 20 (berbiji), 21 (tanpa biji) | Average seeded + seedless |
+| `lime` | 酸柑 | Lime | 1132 (limau nipis) | Per kg |
+
+### Why these items
+- All measured per kg (unlike apples/oranges which are per piece) -- consistent with existing items
+- High coverage in PriceCatcher (surveyed daily nationwide)
+- Common Malaysian kitchen staples across all ethnic groups
+- Good price volatility -- vegetables and fruits show more seasonal variation than staples
+
+### Changes required
 - Update `FoodItem` type union in `useFoodPrices.ts`
-- Add items to `PriceHeader` dropdown
-- Update `backfill-prices` edge function with new base prices and rates
-- Update `scrape-prices` edge function with new keyword mappings
-- Re-run backfill to populate historical data for new items
+- Add to `ITEM_MAP` in `sync-dosm/index.ts` with per-item max prices
+- Add translation keys for all 7 new items
+- Add to `PriceHeader` dropdown (with category grouping)
+- Run backfill for all months (2024-02 to 2026-02) to populate historical data
 
 ---
 
-## 3. Bilingual Support (Chinese Default + English Toggle)
+## 4. About / Methodology Page
 
-### Architecture
+Create a new `/about` route with a dedicated page explaining the data pipeline, calculation methods, and data freshness.
 
-Create a lightweight i18n system using React Context -- no heavy library needed for two languages.
+### Page structure
 
-- **`LanguageContext`** (`src/contexts/LanguageContext.tsx`): provides `lang` ("zh" | "en") and `toggleLang()` 
-- **`translations.ts`** (`src/lib/translations.ts`): a flat dictionary file mapping all UI strings in both languages
-- **Language toggle**: A minimal text toggle in the top-right corner of the header -- styled as inline text "EN / 中" (not a button with icons), matching the Eslite aesthetic
+```text
+About This Project
+==================
 
-### Translation scope
+Section 1: What This Tracks
+- 18 food items (10 staples + 3 vegetables + 4 fruits + 1 composite basket)
+- National daily average prices from ~5,000+ retail premises
+- CPI-adjusted "real price" to show true purchasing power
 
-All visible text: page title, dropdown labels, sidebar headings, stat descriptions, chart legend names, tooltip labels, footer, data source explanations, disclaimer text.
+Section 2: Data Pipeline
+- Source: KPDN PriceCatcher via OpenDOSM (storage.data.gov.my)
+- Monthly CSV files containing millions of individual price observations
+- Pipeline computes national daily averages per item
+- CPI from DOSM via OpenDOSM API (cpi_core dataset)
+- Automated daily sync for current month data
 
-### Default behavior
+Section 3: Calculation Method
+- Nominal Price: Simple average of all surveyor-reported prices for an item on a given day
+- Real Price = Nominal Price / CPI x 100
+- Basket = Sum of all individual item averages for a given day
+- Percentage change = (Latest - Earliest) / Earliest x 100
 
-- Page loads in Chinese (zh)
-- Toggle switches to English
-- Preference stored in `localStorage`
+Section 4: Item Code Mapping Table
+- Full table showing each tracked item, its PriceCatcher item_codes, unit, and normalization (e.g. rice: 10kg bags divided by 10)
+
+Section 5: Data Freshness & Limitations
+- PriceCatcher data typically available within 1-2 days
+- CPI data is monthly, published with ~2 month lag
+- Some items have sparse daily coverage (fewer surveyor visits)
+- Prices represent national averages and may not reflect regional variation
+
+Section 6: Credits & Links
+- OpenDOSM: open.dosm.gov.my
+- KPDN: kpdn.gov.my
+- DOSM: dosm.gov.my
+- Inspired by inflationchart.com
+```
+
+### Design
+- Same Eslite aesthetic as the main page
+- Serif headings, warm palette
+- Bilingual (Chinese/English) using the existing translation system
+- Navigation link in the header and footer to go between Home and About
 
 ---
 
-## 4. Eslite (诚品) Design Overhaul
+## 5. UI Improvements for 18 Items
 
-The Eslite aesthetic is defined by: **restraint, warmth, literary sensibility, and generous whitespace.** Think of a well-curated bookstore -- quiet confidence, not shouting.
+With 18 items (up from 11), the flat dropdown and 2-column grid become crowded. Changes:
 
-### Key design principles applied
+### Dropdown grouping
+Organize the Select dropdown into three visual groups:
+- **Staples** (综合/主食): Basket, Chicken, Eggs, Rice, Milk, Sugar, Cooking Oil
+- **Vegetables** (蔬菜): Tomato, Long Beans, Kangkung, Onion, Cabbage, Spinach, Chili, Cucumber (if added)
+- **Fruits** (水果): Papaya, Banana, Watermelon, Lime
 
-1. **Typography over decoration** -- Let type hierarchy do the work. No emoji in UI chrome. No gradient titles.
-2. **Warm neutrals on dark** -- Replace pure black (#000) with a warm very-dark charcoal. Cards get a subtle warm tint.
-3. **Serif for headings** -- Use `Noto Serif TC` (Google Fonts, free) for Chinese headings and section titles. Body text stays in a clean sans-serif (`Noto Sans TC` for Chinese, system sans for English).
-4. **Thin, deliberate borders** -- Hairline dividers, not chunky borders. Borders in warm gray, not cold gray.
-5. **No emoji in structural UI** -- Remove all emoji from headings, buttons, cards, dropdown labels. The data speaks for itself.
-6. **Accent color**: A single warm terracotta/rust tone (around `hsl(15, 60%, 50%)`) replaces the red-orange-yellow gradient. Used sparingly for links, the active state, and key statistics.
-7. **Generous spacing** -- More padding, more breathing room between sections.
+Use `SelectGroup` with `SelectLabel` from Radix to create labeled sections.
 
-### CSS variable changes (`index.css`)
-
-```text
-Current                          New (Eslite-inspired)
---background: 0 0% 0%           --background: 30 5% 5%        (warm near-black)
---foreground: 0 0% 95%          --foreground: 40 10% 88%      (warm off-white)
---card: 0 0% 4%                 --card: 30 4% 8%              (warm dark card)
---muted: 0 0% 12%               --muted: 30 4% 14%            (warm muted)
---muted-fg: 0 0% 55%            --muted-fg: 30 5% 50%         (warm gray text)
---border: 0 0% 15%              --border: 30 5% 18%           (warm hairline)
---primary: 0 72% 51%            --primary: 15 55% 48%         (terracotta)
---chart-bg: 0 0% 3%             --chart-bg: 30 5% 6%          (warm chart bg)
-```
-
-### Font loading
-
-Add Google Fonts link in `index.html`:
-```text
-Noto Serif TC (weights 400, 700) -- for zh headings
-Noto Sans TC (weights 400, 500, 700) -- for zh body
-```
-
-Add font-family configuration in `tailwind.config.ts`:
-```text
-fontFamily: {
-  serif: ['"Noto Serif TC"', 'Georgia', 'serif'],
-  sans: ['"Noto Sans TC"', 'system-ui', 'sans-serif'],
-}
-```
-
-### Component-level changes
-
-**`PriceHeader`**:
-- Remove emoji from title. New title: "马来西亚食品价格 -- 实际购买力" (zh) / "Malaysian Food Prices -- Real Purchasing Power" (en)
-- Title uses `font-serif` class, warm foreground color, no gradient
-- Language toggle as small text link in top-right
-- Dropdowns use clean labels without emoji (e.g., "鸡肉" not "🐔 Chicken")
-
-**`PriceChart`**:
-- Keep chart colors (green/blue/red lines) -- these are functional, not decorative
-- Tooltip and legend text uses the translation system
-- Slightly warmer chart background
-
-**`PriceSidebar`**:
-- Remove all emoji from headings ("图表说明" not "💡 What This Chart Shows")
-- Section titles in serif font
-- Current prices grid at top with clean typography
-- Thinner card borders, more internal padding
-- Legend uses small colored circles (CSS) instead of emoji (🟢🔵🔴)
-
-**`Index.tsx` (footer)**:
-- Clean footer without emoji, warm muted text
-- Links use terracotta accent color
+### Current Prices Grid
+- Expand to 3-column grid on sidebar
+- Add subtle category labels (主食 / 蔬菜 / 水果) as tiny section headers within the grid
+- Keep the click-to-select behavior
 
 ---
 
-## Files to Create
+## Technical Details
+
+### Files to Create
 
 | File | Purpose |
 |------|---------|
-| `src/contexts/LanguageContext.tsx` | Language provider + toggle hook |
-| `src/lib/translations.ts` | All UI strings in zh/en |
-| `src/components/CurrentPricesGrid.tsx` | Today's prices grid component |
-| `src/hooks/useLatestPrices.ts` | Fetch latest prices for all items |
+| `src/pages/About.tsx` | Methodology and data pipeline page |
 
-## Files to Modify
+### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `index.html` | Add Google Fonts, update title/meta |
-| `src/index.css` | Warm color palette, font defaults |
-| `tailwind.config.ts` | Add font-family config |
-| `src/App.tsx` | Wrap with `LanguageProvider` |
-| `src/pages/Index.tsx` | Integrate language context, pass to children |
-| `src/components/PriceHeader.tsx` | Bilingual labels, no emoji, serif title, language toggle |
-| `src/components/PriceChart.tsx` | Bilingual tooltip/legend labels |
-| `src/components/PriceSidebar.tsx` | Bilingual text, no emoji, add CurrentPricesGrid, serif headings |
-| `src/hooks/useFoodPrices.ts` | Expand `FoodItem` type with 4 new items |
-| `supabase/functions/backfill-prices/index.ts` | Add 4 new items with base prices |
-| `supabase/functions/scrape-prices/index.ts` | Add keyword mappings for new items |
+| `src/App.tsx` | Add `/about` route |
+| `src/hooks/useFoodPrices.ts` | Expand `FoodItem` type with 7 new items |
+| `src/lib/translations.ts` | Add translations for new items, About page text, category labels |
+| `src/components/PriceHeader.tsx` | Grouped dropdown with SelectGroup, add About nav link |
+| `src/components/CurrentPricesGrid.tsx` | 3-column layout, category section headers |
+| `src/pages/Index.tsx` | Add About link in footer |
+| `supabase/functions/sync-dosm/index.ts` | Add 7 new item codes, per-item price bounds, fix CPI API filtering |
 
-## Execution order
+### Edge Function Changes (sync-dosm)
 
-1. Create translation system and language context
-2. Update CSS/Tailwind for Eslite palette and fonts
-3. Expand `FoodItem` type and update edge functions
-4. Create `useLatestPrices` hook and `CurrentPricesGrid` component
-5. Update all UI components with bilingual support and new design
-6. Re-deploy edge functions and run backfill for new items
-7. Test end-to-end: language toggle, item switching, responsive layout
+1. Add new entries to `ITEM_MAP`:
+```text
+chili:      { codes: [92, 93, 94], divisor: 1 }
+cabbage:    { codes: [104, 105, 1396, 1458], divisor: 1 }
+spinach:    { codes: [1556, 1557], divisor: 1 }
+papaya:     { codes: [16], divisor: 1 }
+banana:     { codes: [18], divisor: 1 }
+watermelon: { codes: [20, 21], divisor: 1 }
+lime:       { codes: [1132], divisor: 1 }
+```
+
+2. Add `MAX_PRICE` map for per-item validation:
+```text
+chicken: 25, eggs: 15, tomato: 20, longbeans: 20,
+rice: 10, milk: 20, kangkung: 15, onion: 15,
+sugar: 10, cookingoil: 15, chili: 30, cabbage: 15,
+spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20
+```
+
+3. Fix CPI sync: add API filters, reduce pagination
+
+### Data Operations (post-deploy)
+
+1. Delete bad sugar record: `DELETE FROM food_prices WHERE item = 'sugar' AND date = '2025-01-09'`
+2. Delete bad basket record: `DELETE FROM food_prices WHERE item = 'basket' AND date = '2025-01-09'`
+3. Re-sync January 2025: `{ "action": "sync", "months": ["2025-01"] }`
+4. Sync CPI: `{ "action": "cpi" }`
+5. Backfill all months for new items (the existing months will be re-processed, adding new item averages)
+
+### Execution Order
+
+1. Update sync-dosm with new items, price bounds, and CPI fix -- deploy
+2. Clean bad data (delete sugar/basket anomaly records)
+3. Run CPI sync
+4. Re-sync all months (2024-02 through 2026-02) to populate new items and fix sugar
+5. Update frontend: FoodItem type, translations, grouped dropdown, grid improvements
+6. Create About page and add route
+7. Verify end-to-end: chart renders for new items, CPI line appears, About page works
 
