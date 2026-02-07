@@ -210,7 +210,8 @@ const translations = {
   },
   "about.freshnessItems": {
     zh: [
-      "PriceCatcher 数据通常在 1–2 天内发布",
+      "数据每月自动更新一次（每月1日 00:00 MYT）",
+      "每次更新同步当月及上月数据，确保延迟发布的数据不遗漏",
       "CPI 数据为月度数据，通常滞后约 2 个月",
       "部分商品在某些日期的调查覆盖较少",
       "价格代表全国平均水平，可能无法反映各地区差异",
@@ -218,7 +219,8 @@ const translations = {
       "食用油仅追踪标准1kg瓶装（代码1091），排除补贴袋装及不同规格以确保数据一致性",
     ],
     en: [
-      "PriceCatcher data is typically available within 1–2 days",
+      "Data is automatically updated once per month (1st of each month, 00:00 MYT)",
+      "Each update syncs current and previous month data to capture late publications",
       "CPI data is monthly, published with approximately 2-month lag",
       "Some items have sparse daily coverage (fewer surveyor visits)",
       "Prices represent national averages and may not reflect regional variation",
@@ -249,8 +251,8 @@ const translations = {
     en: "Subsidized / Price-Stable",
   },
   "analysis.footnote": {
-    zh: "实际价格变化 = 名义价格变化 − 通胀率。负值表示购买力增加（价格涨幅低于通胀）。数据基于全国每日平均价格，定期自动更新。",
-    en: "Real change = nominal change − inflation. Negative values mean purchasing power increased (price rose less than inflation). Based on national daily averages, updated automatically.",
+    zh: "实际价格变化 = 名义价格变化 − 通胀率。负值表示购买力增加（价格涨幅低于通胀）。数据基于全国每日平均价格，每月自动更新。",
+    en: "Real change = nominal change − inflation. Negative values mean purchasing power increased (price rose less than inflation). Based on national daily averages, updated monthly.",
   },
 } as const;
 

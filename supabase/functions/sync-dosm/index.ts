@@ -355,6 +355,37 @@ Deno.serve(async (req) => {
       results.cpi = await syncCPI(supabase);
     }
 
+    // ── Full sync: prices (current + previous month) + CPI ──
+    if (action === "full") {
+      const d = new Date();
+      const curMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      // Previous month
+      const pm = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+      const prevMonth = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, "0")}`;
+
+      const months = [prevMonth, curMonth];
+      let total = 0;
+      const monthResults: Record<string, number> = {};
+
+      for (const month of months) {
+        const prices = await processMonthCSV(month, supabase);
+        if (prices.length > 0) {
+          for (let i = 0; i < prices.length; i += 500) {
+            const chunk = prices.slice(i, i + 500);
+            const { error } = await supabase
+              .from("food_prices")
+              .upsert(chunk, { onConflict: "date,item" });
+            if (error) throw error;
+          }
+        }
+        total += prices.length;
+        monthResults[month] = prices.length;
+      }
+
+      results.prices = { total, months: monthResults };
+      results.cpi = await syncCPI(supabase);
+    }
+
     // ── Sync prices for specific months ──
     if (action === "sync") {
       const months = (body.months as string[]) || [body.month as string].filter(Boolean);
