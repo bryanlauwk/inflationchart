@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -9,12 +9,14 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
+  ReferenceLine,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ChartDataPoint } from "@/hooks/useFoodPrices";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { t } from "@/lib/translations";
+import { getFestivalsInRange, FESTIVALS } from "@/lib/festivals";
 
 interface PriceChartProps {
   data: ChartDataPoint[];
@@ -23,9 +25,27 @@ interface PriceChartProps {
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
+
+  // Check if this date aligns with a festival
+  const dataPoint = payload[0]?.payload;
+  const festival = dataPoint
+    ? FESTIVALS.find((f) => {
+        const fMonth = f.date.substring(0, 7);
+        const dMonth = dataPoint.dateRaw?.substring(0, 7);
+        return fMonth === dMonth;
+      })
+    : null;
+
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-xl">
-      <p className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+        {label}
+        {festival && (
+          <span className="ml-1.5">
+            {festival.emoji} {festival.zh}
+          </span>
+        )}
+      </p>
       {payload.map((entry: any) => (
         <p key={entry.dataKey} className="flex items-center gap-2 text-sm">
           <span
@@ -42,12 +62,76 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+/** Custom label for festival reference lines */
+const FestivalLabel = ({
+  viewBox,
+  label,
+  emoji,
+}: {
+  viewBox?: { x?: number; y?: number };
+  label: string;
+  emoji: string;
+}) => {
+  if (!viewBox?.x) return null;
+  return (
+    <g>
+      <text
+        x={viewBox.x}
+        y={12}
+        textAnchor="middle"
+        fontSize={12}
+        className="select-none"
+      >
+        {emoji}
+      </text>
+      <text
+        x={viewBox.x}
+        y={24}
+        textAnchor="middle"
+        fill="hsl(var(--muted-foreground))"
+        fontSize={9}
+        fontWeight={500}
+      >
+        {label}
+      </text>
+    </g>
+  );
+};
+
 export function PriceChart({ data, loading }: PriceChartProps) {
   const isMobile = useIsMobile();
   const { lang } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
   const chartHeight = isMobile ? 350 : 450;
+
+  // Compute festival markers within chart date range
+  const festivals = useMemo(() => {
+    if (!data.length) return [];
+    const raw = getFestivalsInRange(data);
+    return raw.map((f) => {
+      // Re-resolve label based on current lang
+      const fest = FESTIVALS.find(
+        (ff) => ff.emoji === f.emoji && ff.zh === f.label
+      );
+      return {
+        ...f,
+        label: fest ? (lang === "zh" ? fest.zh : fest.en) : f.label,
+      };
+    });
+  }, [data, lang]);
+
+  // Shared reference lines for both chart modes
+  const referenceLines = festivals.map((f, i) => (
+    <ReferenceLine
+      key={`fest-${i}`}
+      x={f.x}
+      stroke="hsl(var(--muted-foreground))"
+      strokeDasharray="4 4"
+      strokeOpacity={0.5}
+      label={<FestivalLabel label={f.label} emoji={f.emoji} />}
+    />
+  ));
 
   if (loading) {
     return (
@@ -79,7 +163,7 @@ export function PriceChart({ data, loading }: PriceChartProps) {
       <div className="rounded-lg border border-border bg-chart-bg p-4 md:p-6">
         <ResponsiveContainer width="100%" height={chartHeight}>
           {expanded ? (
-            <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <LineChart data={data} margin={{ top: 30, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
@@ -98,6 +182,7 @@ export function PriceChart({ data, loading }: PriceChartProps) {
                 width={45}
               />
               <Tooltip content={<CustomTooltip />} />
+              {referenceLines}
               <Line
                 dataKey="real"
                 stroke="hsl(var(--price-red))"
@@ -126,7 +211,7 @@ export function PriceChart({ data, loading }: PriceChartProps) {
               />
             </LineChart>
           ) : (
-            <AreaChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+            <AreaChart data={data} margin={{ top: 30, right: 10, left: 0, bottom: 5 }}>
               <defs>
                 <linearGradient id="gradientReal" x1="0" y1="0" x2="0" y2="1">
                   <stop
@@ -159,6 +244,7 @@ export function PriceChart({ data, loading }: PriceChartProps) {
                 width={45}
               />
               <Tooltip content={<CustomTooltip />} />
+              {referenceLines}
               <Area
                 dataKey="real"
                 stroke="hsl(var(--price-red))"
