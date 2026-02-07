@@ -29,6 +29,8 @@ export interface ChartDataPoint {
   nominal: number;
   cpi: number;
   real: number;
+  /** Number of basket items with same-day data (only for basket) */
+  coverage?: number;
 }
 
 export interface PriceStats {
@@ -50,6 +52,14 @@ export const ALL_ITEMS: FoodItem[] = [
   ...ITEM_CATEGORIES.fruits,
 ];
 
+// The 10 core items that contribute to the basket composite
+export const BASKET_ITEMS_LIST = [
+  "chicken", "eggs", "rice", "milk", "sugar",
+  "cookingoil", "tomato", "longbeans", "kangkung", "onion",
+] as const;
+
+export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 10
+
 function getStartDate(period: TimePeriod): string {
   const now = new Date();
   if (period === "1y") {
@@ -60,6 +70,28 @@ function getStartDate(period: TimePeriod): string {
     return "2024-01-01";
   }
   return now.toISOString().split("T")[0];
+}
+
+/**
+ * Fetch all rows from a query using pagination to avoid the 1000-row limit.
+ */
+async function fetchAllRows<T>(
+  queryBuilder: any
+): Promise<T[]> {
+  const results: T[] = [];
+  let from = 0;
+  const pageSize = 1000;
+
+  while (true) {
+    const { data, error } = await queryBuilder.range(from, from + pageSize - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    results.push(...(data as T[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return results;
 }
 
 export function useFoodPrices(item: FoodItem, period: TimePeriod) {
@@ -138,6 +170,39 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
             cpi,
             real: Math.round((last.price_rm / cpi) * 100 * 100) / 100,
           });
+        }
+      }
+
+      // ── Basket coverage: count same-day individual item presence ──
+      if (item === "basket" && chartData.length > 0) {
+        // Collect the sampled basket dates
+        const basketDates = chartData.map((d) => d.dateRaw);
+
+        // Fetch individual basket items' dates within the period.
+        // Use batched .in() to avoid URL length limits (max ~80 dates per batch).
+        const coverageByDate: Record<string, Set<string>> = {};
+        const batchSize = 80;
+
+        for (let b = 0; b < basketDates.length; b += batchSize) {
+          const dateBatch = basketDates.slice(b, b + batchSize);
+          const { data: coverageRows } = await supabase
+            .from("food_prices")
+            .select("date, item")
+            .in("item", [...BASKET_ITEMS_LIST])
+            .in("date", dateBatch);
+
+          if (coverageRows) {
+            for (const row of coverageRows) {
+              if (!coverageByDate[row.date]) coverageByDate[row.date] = new Set();
+              coverageByDate[row.date].add(row.item);
+            }
+          }
+        }
+
+        // Attach coverage to each chart data point
+        for (const point of chartData) {
+          const items = coverageByDate[point.dateRaw];
+          point.coverage = items ? items.size : 0;
         }
       }
 
