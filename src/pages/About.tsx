@@ -10,7 +10,7 @@ const ITEM_MAPPING = [
   { key: "rice", codes: "904, 992, 1445, 1581, 1582", unit: "1 kg", notes: { zh: "10kg 袋装 ÷ 10 换算为每公斤", en: "10kg bags ÷ 10 to normalize per kg" } },
   { key: "milk", codes: "224, 225, 1852", unit: "1 L", notes: { zh: "鲜奶", en: "Fresh milk" } },
   { key: "sugar", codes: "1589, 1590", unit: "1 kg", notes: { zh: "白砂糖", en: "White sugar" } },
-  { key: "cookingoil", codes: "918, 1091, 1092, 1093", unit: "1 kg", notes: { zh: "食用油", en: "Cooking oil" } },
+  { key: "cookingoil", codes: "1091", unit: "1 kg", notes: { zh: "标准1kg瓶装食用油（排除补贴袋装918及不同规格1092/1093）", en: "Standard 1kg bottled oil (excludes subsidized packet 918 and other sizes 1092/1093)" } },
   { key: "tomato", codes: "114", unit: "1 kg", notes: { zh: "番茄", en: "Tomato" } },
   { key: "longbeans", codes: "98", unit: "1 kg", notes: { zh: "长豆", en: "Long beans" } },
   { key: "kangkung", codes: "1559", unit: "1 kg", notes: { zh: "空心菜", en: "Water spinach" } },
@@ -98,6 +98,12 @@ const About = () => {
               <li className="flex gap-2">
                 <span className="shrink-0 text-primary">·</span>
                 {t("about.methodBasket", lang)}
+              </li>
+              <li className="flex gap-2">
+                <span className="shrink-0 text-primary">·</span>
+                <span className="text-xs text-muted-foreground/80">
+                  {t("about.methodWeights", lang)}
+                </span>
               </li>
               <li className="flex gap-2">
                 <span className="shrink-0 text-primary">·</span>
@@ -207,17 +213,6 @@ const About = () => {
                 {lang === "zh"
                   ? "马来西亚统计局"
                   : "Department of Statistics Malaysia"}
-              </p>
-              <p className="pt-2 text-xs text-muted-foreground/70">
-                {lang === "zh" ? "灵感来自 " : "Inspired by "}
-                <a
-                  href="https://inflationchart.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline"
-                >
-                  inflationchart.com
-                </a>
               </p>
             </div>
           </section>
