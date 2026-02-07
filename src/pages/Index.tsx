@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { PriceHeader } from "@/components/PriceHeader";
 import { PriceChart } from "@/components/PriceChart";
 import { PriceSidebar } from "@/components/PriceSidebar";
@@ -75,7 +76,11 @@ const Index = () => {
           rel="noopener noreferrer"
         >
           inflationchart.com
-        </a>
+        </a>{" "}
+        ·{" "}
+        <Link to="/about" className="text-primary hover:underline">
+          {t("nav.about", lang)}
+        </Link>
       </footer>
     </div>
   );

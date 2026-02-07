@@ -12,7 +12,14 @@ export type FoodItem =
   | "kangkung"
   | "onion"
   | "sugar"
-  | "cookingoil";
+  | "cookingoil"
+  | "chili"
+  | "cabbage"
+  | "spinach"
+  | "papaya"
+  | "banana"
+  | "watermelon"
+  | "lime";
 
 export type TimePeriod = "1y" | "2y" | "all";
 
@@ -29,6 +36,19 @@ export interface PriceStats {
   percentChange: number;
   startPrice: number;
 }
+
+// Category groupings for UI
+export const ITEM_CATEGORIES = {
+  staples: ["basket", "chicken", "eggs", "rice", "milk", "sugar", "cookingoil"] as FoodItem[],
+  vegetables: ["tomato", "longbeans", "kangkung", "onion", "chili", "cabbage", "spinach"] as FoodItem[],
+  fruits: ["papaya", "banana", "watermelon", "lime"] as FoodItem[],
+};
+
+export const ALL_ITEMS: FoodItem[] = [
+  ...ITEM_CATEGORIES.staples,
+  ...ITEM_CATEGORIES.vegetables,
+  ...ITEM_CATEGORIES.fruits,
+];
 
 function getStartDate(period: TimePeriod): string {
   const now = new Date();

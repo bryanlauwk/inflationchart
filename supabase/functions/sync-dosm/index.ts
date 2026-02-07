@@ -8,16 +8,34 @@ const corsHeaders = {
 
 // ── Item code mapping ─────────────────────────────────────────────
 const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
+  // Staples
   chicken:    { codes: [1],    divisor: 1 },
   eggs:       { codes: [118],  divisor: 1 },
-  tomato:     { codes: [114],  divisor: 1 },
-  longbeans:  { codes: [98],   divisor: 1 },
   rice:       { codes: [904, 992, 1445, 1581, 1582], divisor: 10 },
   milk:       { codes: [224, 225, 1852],  divisor: 1 },
-  kangkung:   { codes: [1559], divisor: 1 },
-  onion:      { codes: [129, 1440, 1441],  divisor: 1 },
   sugar:      { codes: [1589, 1590], divisor: 1 },
   cookingoil: { codes: [918, 1091, 1092, 1093], divisor: 1 },
+  // Vegetables
+  tomato:     { codes: [114],  divisor: 1 },
+  longbeans:  { codes: [98],   divisor: 1 },
+  kangkung:   { codes: [1559], divisor: 1 },
+  onion:      { codes: [129, 1440, 1441],  divisor: 1 },
+  chili:      { codes: [92, 93, 94], divisor: 1 },
+  cabbage:    { codes: [104, 105, 1396, 1458], divisor: 1 },
+  spinach:    { codes: [1556, 1557], divisor: 1 },
+  // Fruits
+  papaya:     { codes: [16], divisor: 1 },
+  banana:     { codes: [18], divisor: 1 },
+  watermelon: { codes: [20, 21], divisor: 1 },
+  lime:       { codes: [1132], divisor: 1 },
+};
+
+// Per-item price ceiling (RM) — rejects outlier data points
+const MAX_PRICE: Record<string, number> = {
+  chicken: 25, eggs: 15, tomato: 20, longbeans: 20,
+  rice: 10, milk: 20, kangkung: 15, onion: 15,
+  sugar: 10, cookingoil: 15, chili: 30, cabbage: 15,
+  spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20,
 };
 
 const CODE_TO_ITEM: Map<number, { item: string; divisor: number }> = new Map();
@@ -60,6 +78,7 @@ async function processMonthCSV(month: string): Promise<
   // Accumulate: key = "date|item" → { sum, count }
   const acc: Record<string, { sum: number; count: number }> = {};
   let matched = 0;
+  let rejected = 0;
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
@@ -71,11 +90,19 @@ async function processMonthCSV(month: string): Promise<
 
     const date = parts[dateIdx]?.trim();
     const price = parseFloat(parts[priceIdx]);
-    if (!date || isNaN(price) || price <= 0 || price > 500) continue;
+    if (!date || isNaN(price) || price <= 0) continue;
 
-    matched++;
     const mapping = CODE_TO_ITEM.get(itemCode)!;
     const normalizedPrice = price / mapping.divisor;
+
+    // Per-item price ceiling validation
+    const ceiling = MAX_PRICE[mapping.item] ?? 500;
+    if (normalizedPrice > ceiling) {
+      rejected++;
+      continue;
+    }
+
+    matched++;
     const key = `${date}|${mapping.item}`;
 
     if (!acc[key]) acc[key] = { sum: 0, count: 0 };
@@ -83,7 +110,7 @@ async function processMonthCSV(month: string): Promise<
     acc[key].count += 1;
   }
 
-  console.log(`${month}: matched ${matched} records`);
+  console.log(`${month}: matched ${matched} records, rejected ${rejected} outliers`);
 
   const results: Array<{ date: string; item: string; price_rm: number }> = [];
   const basketByDate: Record<string, number> = {};
@@ -102,38 +129,65 @@ async function processMonthCSV(month: string): Promise<
   return results;
 }
 
-// ── CPI Sync (efficient: only "overall" division, from 2024) ─────
+// ── CPI Sync (filtered: only "overall" division, from 2024) ──────
 
 async function syncCPI(
   supabase: ReturnType<typeof createClient>
 ): Promise<number> {
-  console.log("Fetching CPI...");
+  console.log("Fetching CPI with server-side filtering...");
 
   const records: Array<{ date: string; type: string; value: number }> = [];
 
-  // Use large page size to minimize round-trips
-  for (let offset = 0; offset < 10000; offset += 1000) {
-    const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=1000&offset=${offset}`;
+  // Use server-side filtering to request only "overall" division from 2024+
+  // This avoids downloading all divisions and timing out
+  for (let offset = 0; offset < 5000; offset += 500) {
+    const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=500&offset=${offset}&filter=division@overall&date_start=2024-01-01`;
+    console.log(`CPI fetch: offset=${offset}`);
     const resp = await fetch(url);
-    if (!resp.ok) { console.error(`CPI fetch failed: ${resp.status}`); break; }
+    if (!resp.ok) {
+      console.error(`CPI fetch failed: ${resp.status}`);
+      // Try without filter as fallback
+      break;
+    }
 
     const data = await resp.json();
     if (!Array.isArray(data) || data.length === 0) break;
 
     for (const row of data) {
-      if (row.division === "overall" && row.index != null && row.date >= "2024-01-01") {
+      if (row.index != null) {
         records.push({ date: row.date, type: "CPI", value: row.index });
       }
     }
 
-    if (data.length < 1000) break;
+    if (data.length < 500) break;
+  }
+
+  // Fallback: if server-side filter didn't work, try unfiltered with tighter loop
+  if (records.length === 0) {
+    console.log("Fallback: fetching CPI without server-side filter...");
+    for (let offset = 0; offset < 3000; offset += 500) {
+      const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=500&offset=${offset}`;
+      const resp = await fetch(url);
+      if (!resp.ok) break;
+
+      const data = await resp.json();
+      if (!Array.isArray(data) || data.length === 0) break;
+
+      for (const row of data) {
+        if (row.division === "overall" && row.index != null && row.date >= "2024-01-01") {
+          records.push({ date: row.date, type: "CPI", value: row.index });
+        }
+      }
+
+      if (data.length < 500) break;
+    }
   }
 
   console.log(`CPI: ${records.length} overall records`);
 
   if (records.length === 0) return 0;
 
-  // Upsert
+  // Upsert in small chunks
   for (let i = 0; i < records.length; i += 200) {
     const chunk = records.slice(i, i + 200);
     const { error } = await supabase

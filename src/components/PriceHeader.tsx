@@ -1,12 +1,16 @@
+import { Link } from "react-router-dom";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { t, type TranslationKey } from "@/lib/translations";
+import { ITEM_CATEGORIES } from "@/hooks/useFoodPrices";
 import type { FoodItem, TimePeriod } from "@/hooks/useFoodPrices";
 
 interface PriceHeaderProps {
@@ -15,11 +19,6 @@ interface PriceHeaderProps {
   onItemChange: (item: FoodItem) => void;
   onPeriodChange: (period: TimePeriod) => void;
 }
-
-const ITEMS: FoodItem[] = [
-  "basket", "chicken", "eggs", "tomato", "longbeans", "rice", "milk",
-  "kangkung", "onion", "sugar", "cookingoil",
-];
 
 const PERIODS: TimePeriod[] = ["1y", "2y", "all"];
 
@@ -38,12 +37,20 @@ export function PriceHeader({
           <h1 className="font-serif text-2xl font-bold leading-tight text-foreground md:text-4xl">
             {t("pageTitle", lang)}
           </h1>
-          <button
-            onClick={toggleLang}
-            className="mt-1 shrink-0 text-sm text-muted-foreground transition-colors hover:text-primary"
-          >
-            {lang === "zh" ? "EN" : "中"}
-          </button>
+          <div className="mt-1 flex shrink-0 items-center gap-3">
+            <Link
+              to="/about"
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
+            >
+              {t("nav.about", lang)}
+            </Link>
+            <button
+              onClick={toggleLang}
+              className="text-sm text-muted-foreground transition-colors hover:text-primary"
+            >
+              {lang === "zh" ? "EN" : "中"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -52,11 +59,36 @@ export function PriceHeader({
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-50 border-border bg-card">
-              {ITEMS.map((i) => (
-                <SelectItem key={i} value={i}>
-                  {t(`item.${i}` as TranslationKey, lang)}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                <SelectLabel className="text-xs text-muted-foreground">
+                  {t("category.staples", lang)}
+                </SelectLabel>
+                {ITEM_CATEGORIES.staples.map((i) => (
+                  <SelectItem key={i} value={i}>
+                    {t(`item.${i}` as TranslationKey, lang)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel className="text-xs text-muted-foreground">
+                  {t("category.vegetables", lang)}
+                </SelectLabel>
+                {ITEM_CATEGORIES.vegetables.map((i) => (
+                  <SelectItem key={i} value={i}>
+                    {t(`item.${i}` as TranslationKey, lang)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              <SelectGroup>
+                <SelectLabel className="text-xs text-muted-foreground">
+                  {t("category.fruits", lang)}
+                </SelectLabel>
+                {ITEM_CATEGORIES.fruits.map((i) => (
+                  <SelectItem key={i} value={i}>
+                    {t(`item.${i}` as TranslationKey, lang)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
 
