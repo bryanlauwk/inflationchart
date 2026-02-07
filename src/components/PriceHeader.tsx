@@ -5,6 +5,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { t, type TranslationKey } from "@/lib/translations";
 import type { FoodItem, TimePeriod } from "@/hooks/useFoodPrices";
 
 interface PriceHeaderProps {
@@ -14,21 +16,12 @@ interface PriceHeaderProps {
   onPeriodChange: (period: TimePeriod) => void;
 }
 
-const ITEMS: { value: FoodItem; label: string }[] = [
-  { value: "basket", label: "🛒 Full Basket" },
-  { value: "chicken", label: "🐔 Chicken" },
-  { value: "eggs", label: "🥚 Eggs" },
-  { value: "tomato", label: "🍅 Tomato" },
-  { value: "longbeans", label: "🫘 Long Beans" },
-  { value: "rice", label: "🍚 Rice" },
-  { value: "milk", label: "🥛 Milk" },
+const ITEMS: FoodItem[] = [
+  "basket", "chicken", "eggs", "tomato", "longbeans", "rice", "milk",
+  "kangkung", "onion", "sugar", "cookingoil",
 ];
 
-const PERIODS: { value: TimePeriod; label: string }[] = [
-  { value: "1y", label: "🗓 1 year" },
-  { value: "2y", label: "🗓 2 years" },
-  { value: "all", label: "🗓 All time" },
-];
+const PERIODS: TimePeriod[] = ["1y", "2y", "all"];
 
 export function PriceHeader({
   item,
@@ -36,40 +29,50 @@ export function PriceHeader({
   onItemChange,
   onPeriodChange,
 }: PriceHeaderProps) {
+  const { lang, toggleLang } = useLanguage();
+
   return (
-    <header className="border-b border-chart-border px-4 py-8 text-center md:py-10">
-      <h1 className="mb-6 text-3xl font-bold md:text-5xl">
-        <span className="bg-gradient-to-r from-red-500 via-orange-400 to-yellow-400 bg-clip-text text-transparent">
-          🛒 Malaysian Food Prices 🇲🇾 in Real Terms 💰
-        </span>
-      </h1>
+    <header className="border-b border-border px-4 py-10 md:py-12">
+      <div className="mx-auto max-w-7xl">
+        <div className="flex items-start justify-between">
+          <h1 className="font-serif text-2xl font-bold leading-tight text-foreground md:text-4xl">
+            {t("pageTitle", lang)}
+          </h1>
+          <button
+            onClick={toggleLang}
+            className="mt-1 shrink-0 text-sm text-muted-foreground transition-colors hover:text-primary"
+          >
+            {lang === "zh" ? "EN" : "中"}
+          </button>
+        </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <Select value={item} onValueChange={(v) => onItemChange(v as FoodItem)}>
-          <SelectTrigger className="w-[180px] border-chart-border bg-chart-bg text-foreground">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-chart-border bg-chart-bg">
-            {ITEMS.map((i) => (
-              <SelectItem key={i.value} value={i.value}>
-                {i.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Select value={item} onValueChange={(v) => onItemChange(v as FoodItem)}>
+            <SelectTrigger className="w-[160px] border-border bg-card text-foreground">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-50 border-border bg-card">
+              {ITEMS.map((i) => (
+                <SelectItem key={i} value={i}>
+                  {t(`item.${i}` as TranslationKey, lang)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={period} onValueChange={(v) => onPeriodChange(v as TimePeriod)}>
-          <SelectTrigger className="w-[160px] border-chart-border bg-chart-bg text-foreground">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-chart-border bg-chart-bg">
-            {PERIODS.map((p) => (
-              <SelectItem key={p.value} value={p.value}>
-                {p.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={period} onValueChange={(v) => onPeriodChange(v as TimePeriod)}>
+            <SelectTrigger className="w-[140px] border-border bg-card text-foreground">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-50 border-border bg-card">
+              {PERIODS.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {t(`period.${p}` as TranslationKey, lang)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </header>
   );

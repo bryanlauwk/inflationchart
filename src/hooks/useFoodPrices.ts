@@ -1,7 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type FoodItem = "basket" | "chicken" | "eggs" | "tomato" | "longbeans" | "rice" | "milk";
+export type FoodItem =
+  | "basket"
+  | "chicken"
+  | "eggs"
+  | "tomato"
+  | "longbeans"
+  | "rice"
+  | "milk"
+  | "kangkung"
+  | "onion"
+  | "sugar"
+  | "cookingoil";
+
 export type TimePeriod = "1y" | "2y" | "all";
 
 export interface ChartDataPoint {
@@ -127,6 +139,6 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
 
       return { chartData, stats };
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }

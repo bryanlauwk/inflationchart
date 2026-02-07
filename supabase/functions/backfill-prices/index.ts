@@ -24,6 +24,10 @@ Deno.serve(async (req) => {
       longbeans: 4.0,
       rice: 14.5,
       milk: 9.8,
+      kangkung: 3.5,
+      onion: 3.8,
+      sugar: 2.85,
+      cookingoil: 6.9,
     };
 
     // Item-specific monthly inflation rates for realism
@@ -34,6 +38,10 @@ Deno.serve(async (req) => {
       longbeans: 0.012,
       rice: 0.008,
       milk: 0.011,
+      kangkung: 0.014,
+      onion: 0.016,
+      sugar: 0.005,
+      cookingoil: 0.01,
     };
 
     const startDate = new Date("2024-02-01");

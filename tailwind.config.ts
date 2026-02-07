@@ -18,6 +18,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        serif: ['"Noto Serif TC"', "Georgia", "serif"],
+        sans: ['"Noto Sans TC"', "system-ui", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
