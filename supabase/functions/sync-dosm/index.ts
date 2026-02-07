@@ -40,10 +40,15 @@ const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
 
 // Per-item price ceiling (RM) — rejects outlier data points
 const MAX_PRICE: Record<string, number> = {
-  chicken: 25, eggs: 15, tomato: 20, longbeans: 20,
+  chicken: 25, eggs: 8, tomato: 20, longbeans: 20,
   rice: 10, milk: 20, kangkung: 15, onion: 15,
   sugar: 10, cookingoil: 15, chili: 30, cabbage: 15,
   spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20,
+};
+
+// Per-item price floor (RM) — rejects subsidized/misclassified entries
+const MIN_PRICE: Record<string, number> = {
+  cookingoil: 5.0, // standard 1kg bottle is RM7-9; filters out RM2.50 subsidized packets
 };
 
 // ── Basket configuration ──────────────────────────────────────────
@@ -139,9 +144,10 @@ async function processMonthCSV(
     const mapping = CODE_TO_ITEM.get(itemCode)!;
     const normalizedPrice = price / mapping.divisor;
 
-    // Per-item price ceiling validation
+    // Per-item price validation (ceiling + floor)
     const ceiling = MAX_PRICE[mapping.item] ?? 500;
-    if (normalizedPrice > ceiling) {
+    const floor = MIN_PRICE[mapping.item] ?? 0;
+    if (normalizedPrice > ceiling || normalizedPrice < floor) {
       rejected++;
       continue;
     }

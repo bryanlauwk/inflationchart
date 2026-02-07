@@ -8,6 +8,18 @@ export interface Festival {
 
 // Key festivals that typically affect food prices
 export const FESTIVALS: Festival[] = [
+  // 2022
+  { date: "2022-02-01", en: "CNY", zh: "新年", emoji: "🧧" },
+  { date: "2022-05-02", en: "Hari Raya", zh: "开斋节", emoji: "🌙" },
+  { date: "2022-07-10", en: "Raya Haji", zh: "哈芝节", emoji: "🐑" },
+  { date: "2022-10-24", en: "Deepavali", zh: "屠妖节", emoji: "🪔" },
+
+  // 2023
+  { date: "2023-01-22", en: "CNY", zh: "新年", emoji: "🧧" },
+  { date: "2023-04-22", en: "Hari Raya", zh: "开斋节", emoji: "🌙" },
+  { date: "2023-06-29", en: "Raya Haji", zh: "哈芝节", emoji: "🐑" },
+  { date: "2023-11-12", en: "Deepavali", zh: "屠妖节", emoji: "🪔" },
+
   // 2024
   { date: "2024-02-10", en: "CNY", zh: "新年", emoji: "🧧" },
   { date: "2024-04-10", en: "Hari Raya", zh: "开斋节", emoji: "🌙" },

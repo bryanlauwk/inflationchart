@@ -65,7 +65,7 @@ export function HeroStat({ item, period, stats, loading }: HeroStatProps) {
             </p>
 
             <div className="mt-3 flex items-baseline gap-4">
-              <span className="font-serif text-6xl font-bold tabular-nums tracking-tight text-foreground md:text-8xl">
+              <span className="font-serif text-7xl font-bold tabular-nums tracking-tight text-foreground md:text-9xl">
                 RM{animatedCost.toFixed(2)}
               </span>
             </div>
@@ -95,8 +95,8 @@ export function HeroStat({ item, period, stats, loading }: HeroStatProps) {
 
             <p className="mt-6 max-w-md text-xs leading-relaxed text-muted-foreground/70">
               {lang === "zh"
-                ? `当前每单位价格 RM${stats.currentPrice.toFixed(2)}。实际价格 = 名义价格 ÷ CPI × 100。`
-                : `Current unit price RM${stats.currentPrice.toFixed(2)}. Real Price = Nominal ÷ CPI × 100.`}
+                ? `当前每单位价格 RM${stats.currentPrice.toFixed(2)}`
+                : `Current unit price RM${stats.currentPrice.toFixed(2)}`}
             </p>
           </>
         )}
