@@ -44,7 +44,7 @@ const BASKET_ITEMS = new Set([
   "chicken", "eggs", "rice", "milk", "sugar",
   "cookingoil", "tomato", "longbeans", "kangkung", "onion",
 ]);
-const MIN_BASKET_ITEMS = 10; // require all 10 core items for a valid basket day
+const MIN_BASKET_ITEMS = 7; // require ≥7 of 10 core items; normalize to full 10
 
 const CODE_TO_ITEM: Map<number, { item: string; divisor: number }> = new Map();
 for (const [item, { codes, divisor }] of Object.entries(ITEM_MAP)) {
@@ -138,10 +138,13 @@ async function processMonthCSV(month: string): Promise<
     }
   }
 
-  // Only emit basket for days with sufficient item coverage
+  // Emit normalized basket: scale to represent all 10 core items
+  const BASKET_SIZE = BASKET_ITEMS.size; // 10
   for (const [date, { total, count }] of Object.entries(basketByDate)) {
     if (count >= MIN_BASKET_ITEMS) {
-      results.push({ date, item: "basket", price_rm: Math.round(total * 100) / 100 });
+      // Normalize: if 8 of 10 items present with sum=46, basket = (46/8)*10 = 57.50
+      const normalized = Math.round((total / count) * BASKET_SIZE * 100) / 100;
+      results.push({ date, item: "basket", price_rm: normalized });
     } else {
       console.log(`Skipping basket for ${date}: only ${count}/${MIN_BASKET_ITEMS} core items`);
     }
