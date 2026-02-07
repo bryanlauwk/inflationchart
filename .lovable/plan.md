@@ -1,41 +1,48 @@
 
 
-# Plan: Monthly Sync + Japanese Illustration Background
+# Plan: Daily Sync + Remove About Page + Eslite Design Upgrade
 
-## 1. Change Data Sync to Monthly
+## 1. Restore Daily Data Sync
 
-Currently, a `pg_cron` job named `sync-dosm-daily` runs every day at 16:00 UTC (00:00 MYT). Since OpenDOSM publishes PriceCatcher data as **monthly CSV files** and CPI data is also monthly, daily syncs are redundant -- the same data gets re-fetched 28-30 times per month.
+The "今日价格" sidebar displays daily prices, but `sync-dosm` currently runs monthly. This means prices could be up to 30 days stale while labeled "today." Restoring daily sync resolves this conflict.
+
+**Database change:**
+- Delete `sync-dosm-monthly` cron job
+- Create `sync-dosm-daily` with schedule `0 16 * * *` (daily at 00:00 MYT), calling `{"action":"full"}` to sync current + previous month prices and CPI
+
+**Translation update:**
+- Change "每月自动更新一次" back to "每日自动更新"
+
+## 2. Remove About Page, Keep Key Info on Homepage
+
+Delete the standalone `/about` page. The sidebar already contains "Data Sources" and "Chart Explanation" sections. We only need to add one concise methodology note (the Real Price formula) to the sidebar -- which is already there in `data.methodology`.
 
 **Changes:**
-- Delete the existing `sync-dosm-daily` cron job
-- Create a new `sync-dosm-monthly` cron job that runs on the **1st of each month at 16:00 UTC** (00:00 MYT)
-- The new job will sync **both** the current month and previous month (to catch late-published data), plus update CPI
-- Update the edge function to accept a new `"full"` action that syncs prices + CPI in one call
-- Update the About page translation for data freshness to reflect monthly sync schedule
+- Delete `src/pages/About.tsx`
+- Remove `/about` route from `App.tsx`
+- Remove About link from header (`PriceHeader.tsx`) and footer (`Index.tsx`)
+- Remove about-related translations from `translations.ts` (clean up unused keys)
+- The sidebar already contains the methodology formula, data source links, and chart legend -- no additional content migration needed
 
-**Cron schedule:** `0 16 1 * *` (1st of every month, 16:00 UTC)
+## 3. Eslite-Inspired Visual Upgrade
 
-## 2. Add Japanese-Style Illustration Background
+Transform the page from a "data dashboard" into an editorial, bookstore-magazine aesthetic. Key changes:
 
-Add subtle, hand-drawn Japanese illustration elements (ukiyo-e / sumi-e inspired) as decorative SVG backgrounds to break the visual monotony of the dark charcoal data-heavy layout. This stays true to the Eslite-inspired aesthetic while adding warmth and visual interest.
+**a) Remove emojis from PurchasingPowerSummary** (per design constraints -- no emojis in cards/text). Replace with elegant terracotta dot indicators.
 
-**Approach:**
-- Create a new `BackgroundIllustration` component with inline SVG art featuring:
-  - Delicate line-drawn food motifs (rice bowl, vegetables, fish) in a very low-opacity terracotta/warm tone
-  - Wave patterns (seigaiha) as subtle section dividers
-  - Organic brush-stroke textures at section boundaries
-- Place illustrations in key areas:
-  - **Hero section**: A large, faded food market scene illustration behind the RM amount
-  - **Between chart and analysis**: A thin wave/cloud separator pattern
-  - **Footer area**: Small decorative motifs
-- All illustrations will be SVG paths rendered at very low opacity (5-12%) so they don't compete with data readability
-- Colors will use the existing terracotta palette (`--primary`) at reduced opacity
+**b) Enhance Japanese illustrations:**
+- Increase hero illustration opacity to 25-30% (currently 15-20%)
+- Add a new subtle washi paper texture overlay on the page background
+- Add a warm ambient glow behind the hero RM figure using a radial gradient
 
-**Design principles:**
-- No emojis in structural elements (per design constraints)
-- Illustrations are purely decorative, using `pointer-events-none` and `aria-hidden`
-- Responsive -- scales gracefully on mobile
-- Subtle enough to enhance without distracting from the core data narrative
+**c) Refine typography and spacing:**
+- Add more generous vertical spacing between major sections
+- Use softer, more organic card borders (lower opacity border color)
+- Add subtle entry animations to sidebar cards using framer-motion
+
+**d) Footer redesign:**
+- Cleaner, more minimal footer with just credits and data source
+- Enhanced footer motifs at higher opacity
 
 ---
 
@@ -45,29 +52,35 @@ Add subtle, hand-drawn Japanese illustration elements (ukiyo-e / sumi-e inspired
 
 | File | Change |
 |------|--------|
-| `supabase/functions/sync-dosm/index.ts` | Add `"full"` action that syncs current+previous month prices and CPI in one call |
-| `src/lib/translations.ts` | Update data freshness description to mention monthly sync |
-| `src/components/BackgroundIllustration.tsx` | **New** -- SVG illustration components (wave patterns, food motifs) |
-| `src/pages/Index.tsx` | Add background illustration layers to hero, chart section, and footer |
-| `src/index.css` | Add any needed utility classes for illustration positioning |
+| `src/pages/About.tsx` | **Delete** |
+| `src/App.tsx` | Remove About import and route |
+| `src/pages/Index.tsx` | Remove About link from footer, add warm glow behind hero, increase section spacing |
+| `src/components/PriceHeader.tsx` | Remove About link from header nav |
+| `src/components/PurchasingPowerSummary.tsx` | Remove emoji mapping, use terracotta dot indicators instead |
+| `src/components/BackgroundIllustration.tsx` | Increase hero opacity to 25-30%, add washi texture overlay component |
+| `src/components/HeroStat.tsx` | Add warm radial glow background behind the RM figure |
+| `src/lib/translations.ts` | Remove all `about.*` keys, update data freshness to daily |
+| `src/index.css` | Add washi texture utility, refine card border softness |
 
 ### Database Changes
 
-- **Delete** cron job `sync-dosm-daily`
-- **Create** cron job `sync-dosm-monthly` with schedule `0 16 1 * *`, calling sync-dosm with `{"action":"full"}` body
+```text
+DELETE cron job: sync-dosm-monthly
+CREATE cron job: sync-dosm-daily
+  Schedule: 0 16 * * * (daily 00:00 MYT)
+  Action: {"action":"full"}
+```
 
-### Edge Function Update
+### Design Upgrades Summary
 
-Add a `"full"` action to `sync-dosm` that:
-1. Syncs the current month's CSV
-2. Syncs the previous month's CSV (catches late data)
-3. Updates CPI indicators
-4. Returns combined results
-
-### SVG Illustration Elements
-
-- **Seigaiha waves**: Traditional Japanese wave pattern as horizontal dividers
-- **Sumi-e food sketches**: Minimalist brush-stroke rice bowl, chili, fish outlines
-- **Cloud/mist bands**: Soft gradient bands between major sections
-- All rendered at 5-10% opacity in terracotta tones on the dark background
+```text
+Before                          After
+------                          -----
+Emojis in price cards           Terracotta dot indicators
+Illustrations at 15-20%        Illustrations at 25-30%
+Flat dark background            Subtle washi paper texture
+Plain hero section              Warm radial glow behind RM figure
+Standard card borders           Softer, lower-opacity borders
+Separate About page             Key info consolidated in sidebar
+```
 
