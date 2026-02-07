@@ -69,8 +69,9 @@ const BASKET_WEIGHTS: Record<string, number> = {
   longbeans:  0.3,  // common vegetable
 };
 
-// Rolling window size in days — looks back up to N days for each item
-const ROLLING_WINDOW_DAYS = 7;
+// Rolling window: look back up to N days for each item.
+// 14 days accommodates items surveyed weekly (eggs, milk, cooking oil).
+const ROLLING_WINDOW_DAYS = 14;
 
 const CODE_TO_ITEM: Map<number, { item: string; divisor: number }> = new Map();
 for (const [item, { codes, divisor }] of Object.entries(ITEM_MAP)) {
@@ -83,16 +84,17 @@ const ALL_CODES = new Set(CODE_TO_ITEM.keys());
 // ── Helpers ───────────────────────────────────────────────────────
 
 function subtractDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T12:00:00Z"); // noon UTC to avoid DST edge cases
+  const d = new Date(dateStr + "T12:00:00Z");
   d.setUTCDate(d.getUTCDate() - days);
   return d.toISOString().split("T")[0];
 }
 
 // ── CSV Processing ────────────────────────────────────────────────
 
-async function processMonthCSV(month: string): Promise<
-  Array<{ date: string; item: string; price_rm: number }>
-> {
+async function processMonthCSV(
+  month: string,
+  supabase: ReturnType<typeof createClient>
+): Promise<Array<{ date: string; item: string; price_rm: number }>> {
   const url = `https://storage.data.gov.my/pricecatcher/pricecatcher_${month}.csv`;
   console.log(`Fetching: ${url}`);
 
@@ -172,20 +174,44 @@ async function processMonthCSV(month: string): Promise<
     }
   }
 
-  // ── Step 2: Compute weighted basket with 7-day rolling window ──
-  // For each date, look back up to ROLLING_WINDOW_DAYS to find the latest
-  // price for each basket item. Only emit basket when ALL items are found.
-  const allDates = [...new Set(results.map((r) => r.date))].sort();
+  // ── Step 2: Load previous month's basket item prices from DB ──
+  // This handles cross-month boundary for the rolling window.
+  // Items like eggs, milk, and cooking oil are surveyed weekly,
+  // so the first ~7 days of a month may need prices from the previous month.
+  const monthFirstDay = `${month}-01`;
+  const lookbackStart = subtractDays(monthFirstDay, ROLLING_WINDOW_DAYS);
+
+  const { data: prevMonthData } = await supabase
+    .from("food_prices")
+    .select("date, item, price_rm")
+    .in("item", [...BASKET_ITEMS])
+    .gte("date", lookbackStart)
+    .lt("date", monthFirstDay)
+    .order("date", { ascending: true });
+
+  if (prevMonthData && prevMonthData.length > 0) {
+    console.log(`${month}: loaded ${prevMonthData.length} previous-month basket item prices for rolling window`);
+    for (const row of prevMonthData) {
+      if (!itemPriceByDate[row.date]) itemPriceByDate[row.date] = {};
+      itemPriceByDate[row.date][row.item] = row.price_rm;
+    }
+  }
+
+  // ── Step 3: Compute weighted basket with rolling window ──
+  // For each date in the current month, look back up to ROLLING_WINDOW_DAYS
+  // to find the latest price for each basket item.
+  // Only emit basket when ALL items are found.
+  const currentMonthDates = [...new Set(results.map((r) => r.date))].sort();
   const BASKET_ITEM_LIST = [...BASKET_ITEMS];
 
   let basketEmitted = 0;
   let basketSkipped = 0;
 
-  for (const date of allDates) {
+  for (const date of currentMonthDates) {
     const resolved: Record<string, number> = {};
 
     for (const bItem of BASKET_ITEM_LIST) {
-      // Search current date, then look back up to ROLLING_WINDOW_DAYS - 1
+      // Search current date, then look back
       for (let d = 0; d < ROLLING_WINDOW_DAYS; d++) {
         const lookDate = d === 0 ? date : subtractDays(date, d);
         if (itemPriceByDate[lookDate]?.[bItem] != null) {
@@ -210,7 +236,7 @@ async function processMonthCSV(month: string): Promise<
     } else {
       const missing = BASKET_ITEM_LIST.filter((i) => !resolved[i]);
       basketSkipped++;
-      if (basketSkipped <= 5) {
+      if (basketSkipped <= 3) {
         console.log(
           `Skipping basket for ${date}: missing [${missing.join(", ")}] in ${ROLLING_WINDOW_DAYS}-day window`
         );
@@ -250,7 +276,7 @@ async function syncCPI(
 
     for (const row of data) {
       if (row.index != null && row.date) {
-        byDate[row.date] = row.index; // last-write-wins dedup
+        byDate[row.date] = row.index;
       }
     }
 
@@ -278,7 +304,6 @@ async function syncCPI(
     }
   }
 
-  // Convert to records array (deduplicated)
   const records = Object.entries(byDate).map(([date, value]) => ({
     date,
     type: "CPI",
@@ -289,7 +314,6 @@ async function syncCPI(
 
   if (records.length === 0) return 0;
 
-  // Upsert in small chunks
   for (let i = 0; i < records.length; i += 100) {
     const chunk = records.slice(i, i + 100);
     const { error } = await supabase
@@ -333,11 +357,14 @@ Deno.serve(async (req) => {
         months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
       }
 
+      // Sort months chronologically so previous-month DB lookback works correctly
+      months.sort();
+
       let total = 0;
       const monthResults: Record<string, number> = {};
 
       for (const month of months) {
-        const prices = await processMonthCSV(month);
+        const prices = await processMonthCSV(month, supabase);
         if (prices.length > 0) {
           for (let i = 0; i < prices.length; i += 500) {
             const chunk = prices.slice(i, i + 500);
