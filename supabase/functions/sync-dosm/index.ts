@@ -44,7 +44,7 @@ const BASKET_ITEMS = new Set([
   "chicken", "eggs", "rice", "milk", "sugar",
   "cookingoil", "tomato", "longbeans", "kangkung", "onion",
 ]);
-const MIN_BASKET_ITEMS = 7; // require ≥7 of 10 core items for a valid basket day
+const MIN_BASKET_ITEMS = 10; // require all 10 core items for a valid basket day
 
 const CODE_TO_ITEM: Map<number, { item: string; divisor: number }> = new Map();
 for (const [item, { codes, divisor }] of Object.entries(ITEM_MAP)) {
