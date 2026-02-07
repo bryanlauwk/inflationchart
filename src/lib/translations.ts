@@ -37,11 +37,15 @@ const translations = {
   // Periods
   "period.1y": { zh: "近一年", en: "1 Year" },
   "period.2y": { zh: "近两年", en: "2 Years" },
+  "period.3y": { zh: "近三年", en: "3 Years" },
+  "period.4y": { zh: "近四年", en: "4 Years" },
   "period.all": { zh: "全部", en: "All Time" },
 
   // Stats
   "stats.since.1y": { zh: "去年以来", en: "since last year" },
   "stats.since.2y": { zh: "两年以来", en: "since 2 years ago" },
+  "stats.since.3y": { zh: "三年以来", en: "since 3 years ago" },
+  "stats.since.4y": { zh: "四年以来", en: "since 4 years ago" },
   "stats.since.all": { zh: "自起始以来", en: "since the start" },
   "stats.currentPrice": { zh: "当前价格", en: "Current price" },
   "stats.priceChanged": {
@@ -139,8 +143,8 @@ const translations = {
 
   // Basket methodology badge
   "basket.badge": {
-    zh: "加权菜篮 · 7天滚动窗口 · 10品项全覆盖",
-    en: "Weighted basket · 7-day rolling · All 10 items",
+    zh: "加权菜篮 · 14天滚动窗口 · 10品项全覆盖",
+    en: "Weighted basket · 14-day rolling · All 10 items",
   },
 
   // About page
@@ -177,8 +181,8 @@ const translations = {
     en: "Real Price = Nominal Price ÷ CPI × 100",
   },
   "about.methodBasket": {
-    zh: "综合菜篮 = Σ(品项价格 × 消费权重)，采用7天滚动窗口确保所有10个核心品项都有数据参与",
-    en: "Basket = Σ(Item Price × Consumption Weight), using a 7-day rolling window to ensure all 10 core items are represented",
+    zh: "综合菜篮 = Σ(品项价格 × 消费权重)，采用14天滚动窗口确保所有10个核心品项都有数据参与",
+    en: "Basket = Σ(Item Price × Consumption Weight), using a 14-day rolling window to ensure all 10 core items are represented",
   },
   "about.methodWeights": {
     zh: "权重基于马来西亚家庭消费比例：鸡肉(2.0)、白米(1.5)、鸡蛋(1.2)、食用油(1.0)、洋葱(0.8)、白糖(0.7)、牛奶(0.6)、番茄(0.5)、空心菜(0.4)、长豆(0.3)",

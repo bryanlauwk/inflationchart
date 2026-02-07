@@ -261,9 +261,9 @@ async function syncCPI(
   // Deduplicate by date — API may return multiple records per date
   const byDate: Record<string, number> = {};
 
-  // Use server-side filtering to request only "overall" division from 2024+
+  // Use server-side filtering to request only "overall" division from 2022+
   for (let offset = 0; offset < 5000; offset += 500) {
-    const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=500&offset=${offset}&filter=division@overall&date_start=2024-01-01`;
+    const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=500&offset=${offset}&filter=division@overall&date_start=2022-01-01`;
     console.log(`CPI fetch: offset=${offset}`);
     const resp = await fetch(url);
     if (!resp.ok) {
@@ -295,7 +295,7 @@ async function syncCPI(
       if (!Array.isArray(data) || data.length === 0) break;
 
       for (const row of data) {
-        if (row.division === "overall" && row.index != null && row.date >= "2024-01-01") {
+        if (row.division === "overall" && row.index != null && row.date >= "2022-01-01") {
           byDate[row.date] = row.index;
         }
       }

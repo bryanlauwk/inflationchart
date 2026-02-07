@@ -20,7 +20,7 @@ interface PriceHeaderProps {
   onPeriodChange: (period: TimePeriod) => void;
 }
 
-const PERIODS: TimePeriod[] = ["1y", "2y", "all"];
+const PERIODS: TimePeriod[] = ["1y", "2y", "3y", "4y", "all"];
 
 export function PriceHeader({
   item,
