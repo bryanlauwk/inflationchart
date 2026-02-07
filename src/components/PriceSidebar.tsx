@@ -2,7 +2,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { t } from "@/lib/translations";
 import { CurrentPricesGrid } from "@/components/CurrentPricesGrid";
 import type { PriceStats, TimePeriod, FoodItem } from "@/hooks/useFoodPrices";
-import type { TranslationKey } from "@/lib/translations";
 
 interface PriceSidebarProps {
   stats: PriceStats;
@@ -14,38 +13,11 @@ interface PriceSidebarProps {
 
 export function PriceSidebar({ stats, period, loading, activeItem, onItemSelect }: PriceSidebarProps) {
   const { lang } = useLanguage();
-  const periodLabel = t(`stats.since.${period}` as TranslationKey, lang);
-
-  const changeColor = stats.percentChange >= 0 ? "text-price-red" : "text-price-green";
-  const changeSign = stats.percentChange >= 0 ? "+" : "";
 
   return (
     <div className="space-y-5">
       {/* Current prices grid */}
       <CurrentPricesGrid onItemSelect={onItemSelect} activeItem={activeItem} />
-
-      {/* Big stat card */}
-      <div className="rounded-lg border border-border bg-card p-6">
-        {loading ? (
-          <div className="animate-pulse space-y-3">
-            <div className="h-12 w-32 rounded bg-muted" />
-            <div className="h-4 w-full rounded bg-muted" />
-          </div>
-        ) : (
-          <>
-            <h2 className={`font-serif text-4xl font-bold ${changeColor}`}>
-              {changeSign}{stats.percentChange.toFixed(1)}%
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              {t("stats.priceChanged", lang)} {changeSign}{stats.percentChange.toFixed(1)}% {periodLabel}
-              。{t("stats.currentPrice", lang)}：
-              <span className="font-semibold text-foreground">
-                RM{stats.currentPrice.toFixed(2)}
-              </span>
-            </p>
-          </>
-        )}
-      </div>
 
       {/* Chart explanation */}
       <div className="rounded-lg border border-border bg-card p-6">
