@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      food_prices: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          item: string
+          price_rm: number
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          item: string
+          price_rm: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          item?: string
+          price_rm?: number
+        }
+        Relationships: []
+      }
+      indicators: {
+        Row: {
+          date: string
+          id: string
+          type: string
+          value: number
+        }
+        Insert: {
+          date: string
+          id?: string
+          type: string
+          value: number
+        }
+        Update: {
+          date?: string
+          id?: string
+          type?: string
+          value?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
