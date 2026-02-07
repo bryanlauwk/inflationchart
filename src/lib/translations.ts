@@ -230,6 +230,28 @@ const translations = {
     zh: "致谢与链接",
     en: "Credits & Links",
   },
+
+  // Purchasing power analysis
+  "analysis.title": {
+    zh: "四年购买力变化",
+    en: "4-Year Purchasing Power Shift",
+  },
+  "analysis.subtitle": {
+    zh: "2022 Q1 至今的实际价格变化（扣除通胀）",
+    en: "Real price changes since Q1 2022, adjusted for inflation",
+  },
+  "analysis.losersTitle": {
+    zh: "购买力下降最多",
+    en: "Biggest Purchasing Power Loss",
+  },
+  "analysis.stableTitle": {
+    zh: "受补贴保护 / 价格稳定",
+    en: "Subsidized / Price-Stable",
+  },
+  "analysis.footnote": {
+    zh: "实际价格变化 = 名义价格变化 − 通胀率。负值表示购买力增加（价格涨幅低于通胀）。数据基于全国每日平均价格，定期自动更新。",
+    en: "Real change = nominal change − inflation. Negative values mean purchasing power increased (price rose less than inflation). Based on national daily averages, updated automatically.",
+  },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
