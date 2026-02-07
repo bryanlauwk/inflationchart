@@ -5,18 +5,34 @@ const translations = {
     en: "Malaysian Food Prices — Real Purchasing Power",
   },
 
-  // Items
+  // Items — Staples
   "item.basket": { zh: "综合菜篮", en: "Full Basket" },
   "item.chicken": { zh: "鸡肉", en: "Chicken" },
   "item.eggs": { zh: "鸡蛋", en: "Eggs" },
-  "item.tomato": { zh: "番茄", en: "Tomato" },
-  "item.longbeans": { zh: "长豆", en: "Long Beans" },
   "item.rice": { zh: "白米", en: "Rice" },
   "item.milk": { zh: "牛奶", en: "Milk" },
-  "item.kangkung": { zh: "空心菜", en: "Kangkung" },
-  "item.onion": { zh: "洋葱", en: "Onion" },
   "item.sugar": { zh: "白糖", en: "Sugar" },
   "item.cookingoil": { zh: "食用油", en: "Cooking Oil" },
+
+  // Items — Vegetables
+  "item.tomato": { zh: "番茄", en: "Tomato" },
+  "item.longbeans": { zh: "长豆", en: "Long Beans" },
+  "item.kangkung": { zh: "空心菜", en: "Kangkung" },
+  "item.onion": { zh: "洋葱", en: "Onion" },
+  "item.chili": { zh: "辣椒", en: "Chili" },
+  "item.cabbage": { zh: "包菜", en: "Cabbage" },
+  "item.spinach": { zh: "菠菜", en: "Spinach" },
+
+  // Items — Fruits
+  "item.papaya": { zh: "木瓜", en: "Papaya" },
+  "item.banana": { zh: "香蕉", en: "Banana" },
+  "item.watermelon": { zh: "西瓜", en: "Watermelon" },
+  "item.lime": { zh: "酸柑", en: "Lime" },
+
+  // Category labels
+  "category.staples": { zh: "主食", en: "Staples" },
+  "category.vegetables": { zh: "蔬菜", en: "Vegetables" },
+  "category.fruits": { zh: "水果", en: "Fruits" },
 
   // Periods
   "period.1y": { zh: "近一年", en: "1 Year" },
@@ -109,6 +125,10 @@ const translations = {
     en: "Real Price = Nominal Price ÷ CPI × 100. Reflects purchasing power changes adjusted for inflation.",
   },
 
+  // Navigation
+  "nav.home": { zh: "首页", en: "Home" },
+  "nav.about": { zh: "关于", en: "About" },
+
   // Footer
   "footer.builtBy": { zh: "开发者", en: "Built by" },
   "footer.dataBy": { zh: "数据来源", en: "Data by" },
@@ -117,12 +137,96 @@ const translations = {
   // Current prices grid
   "grid.noData": { zh: "暂无价格数据", en: "No price data available" },
   "grid.vsYesterday": { zh: "较昨日", en: "vs yesterday" },
+
+  // About page
+  "about.title": {
+    zh: "关于本项目",
+    en: "About This Project",
+  },
+  "about.whatTitle": {
+    zh: "追踪内容",
+    en: "What This Tracks",
+  },
+  "about.whatBody": {
+    zh: "本项目追踪马来西亚 17 种食品（7 种主食 + 7 种蔬菜 + 4 种水果）及 1 个综合菜篮的每日全国平均价格。价格数据来自全国约 5,000 家零售店的实地调查。通过消费者物价指数（CPI）调整后，展示食品的真实购买力变化。",
+    en: "This project tracks daily national average prices of 17 Malaysian food items (7 staples + 7 vegetables + 4 fruits) plus a composite basket. Prices come from field surveys at approximately 5,000+ retail premises nationwide. CPI-adjusted 'real prices' reveal true purchasing power changes.",
+  },
+  "about.pipelineTitle": {
+    zh: "数据管道",
+    en: "Data Pipeline",
+  },
+  "about.pipelineBody": {
+    zh: "价格数据来源于马来西亚国内贸易及生活成本部（KPDN）的 PriceCatcher 调查，通过 OpenDOSM 平台以月度 CSV 文件发布（storage.data.gov.my）。每个 CSV 文件包含数百万条来自全国各地的个别价格记录。我们的管道解析这些文件，按商品和日期计算全国平均价格。消费者物价指数（CPI）数据来自马来西亚统计局（DOSM），通过 OpenDOSM API（cpi_core 数据集）获取。",
+    en: "Price data is sourced from the PriceCatcher survey by the Ministry of Domestic Trade and Cost of Living (KPDN), published via the OpenDOSM platform as monthly CSV files (storage.data.gov.my). Each CSV contains millions of individual price observations from retail premises nationwide. Our pipeline parses these files and computes national daily averages per item. CPI data comes from the Department of Statistics Malaysia (DOSM) via the OpenDOSM API (cpi_core dataset).",
+  },
+  "about.methodTitle": {
+    zh: "计算方法",
+    en: "Calculation Method",
+  },
+  "about.methodNominal": {
+    zh: "名义价格：某一商品在某日全国所有调查员报告价格的简单平均值",
+    en: "Nominal Price: Simple average of all surveyor-reported prices for an item on a given day",
+  },
+  "about.methodReal": {
+    zh: "实际价格 = 名义价格 ÷ CPI × 100",
+    en: "Real Price = Nominal Price ÷ CPI × 100",
+  },
+  "about.methodBasket": {
+    zh: "综合菜篮 = 当日所有追踪商品平均价格之和",
+    en: "Basket = Sum of all tracked item averages for a given day",
+  },
+  "about.methodChange": {
+    zh: "变动百分比 = (最新价格 − 起始价格) ÷ 起始价格 × 100",
+    en: "Percentage change = (Latest − Earliest) ÷ Earliest × 100",
+  },
+  "about.mappingTitle": {
+    zh: "商品代码对照表",
+    en: "Item Code Mapping",
+  },
+  "about.mappingHeaders": {
+    zh: ["商品", "PriceCatcher 代码", "单位", "说明"],
+    en: ["Item", "PriceCatcher Codes", "Unit", "Notes"],
+  },
+  "about.freshnessTitle": {
+    zh: "数据时效与局限",
+    en: "Data Freshness & Limitations",
+  },
+  "about.freshnessItems": {
+    zh: [
+      "PriceCatcher 数据通常在 1–2 天内发布",
+      "CPI 数据为月度数据，通常滞后约 2 个月",
+      "部分商品在某些日期的调查覆盖较少",
+      "价格代表全国平均水平，可能无法反映各地区差异",
+      "异常价格（超出合理范围）在处理时已被自动过滤",
+    ],
+    en: [
+      "PriceCatcher data is typically available within 1–2 days",
+      "CPI data is monthly, published with approximately 2-month lag",
+      "Some items have sparse daily coverage (fewer surveyor visits)",
+      "Prices represent national averages and may not reflect regional variation",
+      "Outlier prices (beyond reasonable bounds) are automatically filtered during processing",
+    ],
+  },
+  "about.creditsTitle": {
+    zh: "致谢与链接",
+    en: "Credits & Links",
+  },
 } as const;
 
 export type TranslationKey = keyof typeof translations;
 
 export function t(key: TranslationKey, lang: "zh" | "en"): string {
-  return translations[key]?.[lang] ?? key;
+  const val = translations[key]?.[lang];
+  if (val === undefined) return key;
+  if (typeof val === "string") return val;
+  return key; // arrays are accessed directly, not via t()
+}
+
+// Helper to get array translations
+export function tArray(key: TranslationKey, lang: "zh" | "en"): string[] {
+  const val = translations[key]?.[lang];
+  if (Array.isArray(val)) return val as string[];
+  return [];
 }
 
 export default translations;
