@@ -72,17 +72,46 @@ const translations = {
   },
 
   // Data sources
-  "data.source": {
-    zh: "价格数据来自 OpenDOSM PriceCatcher（马来西亚国内贸易部）。CPI 数据来自马来西亚统计局。",
-    en: "Prices from OpenDOSM PriceCatcher (Ministry of Domestic Trade). CPI from Department of Statistics Malaysia.",
+  "data.priceSource": {
+    zh: "价格数据来自",
+    en: "Price data from",
+  },
+  "data.priceSourceName": {
+    zh: "PriceCatcher",
+    en: "PriceCatcher",
+  },
+  "data.priceSourceBy": {
+    zh: "，由马来西亚国内贸易及生活成本部（KPDN）通过",
+    en: ", published by Ministry of Domestic Trade and Cost of Living (KPDN) via",
+  },
+  "data.openDosm": {
+    zh: "OpenDOSM",
+    en: "OpenDOSM",
+  },
+  "data.priceSourceEnd": {
+    zh: "开放数据平台发布。",
+    en: " open data platform.",
+  },
+  "data.cpiSource": {
+    zh: "消费者物价指数（CPI）数据来自",
+    en: "Consumer Price Index (CPI) data from",
+  },
+  "data.cpiSourceName": {
+    zh: "马来西亚统计局（DOSM）",
+    en: "Department of Statistics Malaysia (DOSM)",
   },
   "data.disclaimer": {
-    zh: "价格为全国各店铺每日平均值。部分商品在某些日期可能无数据。",
-    en: "Prices are daily national averages across all premises. Some items may have sparse coverage on certain dates.",
+    zh: "价格为 PriceCatcher 调查员在全国各零售店每日采集的实际价格平均值。部分商品在某些日期可能覆盖较少。",
+    en: "Prices are daily national averages from actual retail prices collected by PriceCatcher surveyors across premises nationwide. Some items may have sparse coverage on certain dates.",
+  },
+  "data.methodology": {
+    zh: "实际价格 = 名义价格 ÷ CPI × 100。反映扣除通胀后的真实购买力变化。",
+    en: "Real Price = Nominal Price ÷ CPI × 100. Reflects purchasing power changes adjusted for inflation.",
   },
 
   // Footer
   "footer.builtBy": { zh: "开发者", en: "Built by" },
+  "footer.dataBy": { zh: "数据来源", en: "Data by" },
   "footer.inspiredBy": { zh: "灵感来自", en: "Inspired by" },
 
   // Current prices grid

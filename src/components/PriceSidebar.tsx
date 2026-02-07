@@ -78,17 +78,50 @@ export function PriceSidebar({ stats, period, loading, activeItem, onItemSelect 
         <p className="mt-4 text-xs leading-relaxed text-muted-foreground/80">
           {t("sidebar.explanation", lang)}
         </p>
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground/60 italic">
+          {t("data.methodology", lang)}
+        </p>
       </div>
 
-      {/* Data sources */}
+      {/* Data sources — with proper links and attribution */}
       <div className="rounded-lg border border-border bg-card p-6">
         <h3 className="mb-4 font-serif text-sm font-bold text-foreground">
           {t("sidebar.dataSources", lang)}
         </h3>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          {t("data.source", lang)}
+          {t("data.priceSource", lang)}{" "}
+          <a
+            href="https://open.dosm.gov.my/data-catalogue/pricecatcher"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {t("data.priceSourceName", lang)}
+          </a>
+          {t("data.priceSourceBy", lang)}{" "}
+          <a
+            href="https://open.dosm.gov.my"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {t("data.openDosm", lang)}
+          </a>
+          {t("data.priceSourceEnd", lang)}
         </p>
-        <p className="mt-2 text-xs text-muted-foreground/70">
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          {t("data.cpiSource", lang)}{" "}
+          <a
+            href="https://open.dosm.gov.my/data-catalogue/cpi_core"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary hover:underline"
+          >
+            {t("data.cpiSourceName", lang)}
+          </a>
+          。
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground/70">
           {t("data.disclaimer", lang)}
         </p>
       </div>
