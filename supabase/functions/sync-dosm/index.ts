@@ -136,17 +136,16 @@ async function syncCPI(
 ): Promise<number> {
   console.log("Fetching CPI with server-side filtering...");
 
-  const records: Array<{ date: string; type: string; value: number }> = [];
+  // Deduplicate by date — API may return multiple records per date
+  const byDate: Record<string, number> = {};
 
   // Use server-side filtering to request only "overall" division from 2024+
-  // This avoids downloading all divisions and timing out
   for (let offset = 0; offset < 5000; offset += 500) {
     const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=500&offset=${offset}&filter=division@overall&date_start=2024-01-01`;
     console.log(`CPI fetch: offset=${offset}`);
     const resp = await fetch(url);
     if (!resp.ok) {
       console.error(`CPI fetch failed: ${resp.status}`);
-      // Try without filter as fallback
       break;
     }
 
@@ -154,8 +153,8 @@ async function syncCPI(
     if (!Array.isArray(data) || data.length === 0) break;
 
     for (const row of data) {
-      if (row.index != null) {
-        records.push({ date: row.date, type: "CPI", value: row.index });
+      if (row.index != null && row.date) {
+        byDate[row.date] = row.index; // last-write-wins dedup
       }
     }
 
@@ -163,7 +162,7 @@ async function syncCPI(
   }
 
   // Fallback: if server-side filter didn't work, try unfiltered with tighter loop
-  if (records.length === 0) {
+  if (Object.keys(byDate).length === 0) {
     console.log("Fallback: fetching CPI without server-side filter...");
     for (let offset = 0; offset < 3000; offset += 500) {
       const url = `https://api.data.gov.my/opendosm?id=cpi_core&limit=500&offset=${offset}`;
@@ -175,7 +174,7 @@ async function syncCPI(
 
       for (const row of data) {
         if (row.division === "overall" && row.index != null && row.date >= "2024-01-01") {
-          records.push({ date: row.date, type: "CPI", value: row.index });
+          byDate[row.date] = row.index;
         }
       }
 
@@ -183,13 +182,20 @@ async function syncCPI(
     }
   }
 
-  console.log(`CPI: ${records.length} overall records`);
+  // Convert to records array (deduplicated)
+  const records = Object.entries(byDate).map(([date, value]) => ({
+    date,
+    type: "CPI",
+    value,
+  }));
+
+  console.log(`CPI: ${records.length} unique date records`);
 
   if (records.length === 0) return 0;
 
   // Upsert in small chunks
-  for (let i = 0; i < records.length; i += 200) {
-    const chunk = records.slice(i, i + 200);
+  for (let i = 0; i < records.length; i += 100) {
+    const chunk = records.slice(i, i + 100);
     const { error } = await supabase
       .from("indicators")
       .upsert(chunk, { onConflict: "type,date" });
