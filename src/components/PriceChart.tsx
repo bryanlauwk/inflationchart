@@ -10,6 +10,8 @@ import {
 } from "recharts";
 import type { ChartDataPoint } from "@/hooks/useFoodPrices";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { t } from "@/lib/translations";
 
 interface PriceChartProps {
   data: ChartDataPoint[];
@@ -19,7 +21,7 @@ interface PriceChartProps {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-chart-border bg-chart-tooltip px-3 py-2 text-sm shadow-xl">
+    <div className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-lg">
       <p className="mb-1 font-medium text-foreground">{label}</p>
       {payload.map((entry: any) => (
         <p key={entry.dataKey} style={{ color: entry.color }} className="text-xs">
@@ -32,6 +34,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function PriceChart({ data, loading }: PriceChartProps) {
   const isMobile = useIsMobile();
+  const { lang } = useLanguage();
   const [visible, setVisible] = useState({
     nominal: true,
     cpi: true,
@@ -46,10 +49,10 @@ export function PriceChart({ data, loading }: PriceChartProps) {
   if (loading) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-chart-border bg-chart-bg"
+        className="flex items-center justify-center rounded-lg border border-border bg-chart-bg"
         style={{ height: isMobile ? 400 : 500 }}
       >
-        <p className="text-muted-foreground">Loading chart data...</p>
+        <p className="text-sm text-muted-foreground">{t("chart.loading", lang)}</p>
       </div>
     );
   }
@@ -57,18 +60,16 @@ export function PriceChart({ data, loading }: PriceChartProps) {
   if (!data.length) {
     return (
       <div
-        className="flex items-center justify-center rounded-xl border border-chart-border bg-chart-bg"
+        className="flex items-center justify-center rounded-lg border border-border bg-chart-bg"
         style={{ height: isMobile ? 400 : 500 }}
       >
-        <p className="text-muted-foreground">
-          No data available. Run the backfill to populate historical prices.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("chart.noData", lang)}</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-chart-border bg-chart-bg p-4 md:p-6">
+    <div className="rounded-lg border border-border bg-chart-bg p-4 md:p-6">
       <ResponsiveContainer width="100%" height={isMobile ? 400 : 500}>
         <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
           <XAxis
@@ -86,35 +87,35 @@ export function PriceChart({ data, loading }: PriceChartProps) {
           <Tooltip content={<CustomTooltip />} />
           <Legend
             onClick={handleLegendClick}
-            wrapperStyle={{ cursor: "pointer", fontSize: 13 }}
+            wrapperStyle={{ cursor: "pointer", fontSize: 12 }}
           />
           {visible.nominal && (
             <Line
               dataKey="nominal"
-              stroke="#4ade80"
-              strokeWidth={2.5}
+              stroke="hsl(142, 71%, 65%)"
+              strokeWidth={2}
               dot={false}
-              name="Nominal (RM)"
+              name={t("chart.nominal", lang)}
               type="monotone"
             />
           )}
           {visible.cpi && (
             <Line
               dataKey="cpi"
-              stroke="#60a5fa"
-              strokeWidth={2.5}
+              stroke="hsl(217, 91%, 68%)"
+              strokeWidth={2}
               dot={false}
-              name="CPI Index"
+              name={t("chart.cpi", lang)}
               type="monotone"
             />
           )}
           {visible.real && (
             <Line
               dataKey="real"
-              stroke="#f87171"
-              strokeWidth={2.5}
+              stroke="hsl(0, 91%, 71%)"
+              strokeWidth={2}
               dot={false}
-              name="Real Price"
+              name={t("chart.real", lang)}
               type="monotone"
             />
           )}

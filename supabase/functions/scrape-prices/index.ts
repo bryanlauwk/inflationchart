@@ -14,6 +14,10 @@ const ITEMS: Record<string, string[]> = {
   longbeans: ["kacang panjang", "long bean"],
   rice: ["beras", "rice", "beras tempatan"],
   milk: ["susu", "milk", "susu segar"],
+  kangkung: ["kangkung", "kangkong", "water spinach"],
+  onion: ["bawang besar", "bawang", "onion"],
+  sugar: ["gula pasir", "gula", "sugar"],
+  cookingoil: ["minyak masak", "minyak sawit", "cooking oil", "palm oil"],
 };
 
 Deno.serve(async (req) => {
@@ -53,11 +57,8 @@ Deno.serve(async (req) => {
 
         if (markdown) {
           console.log("Scrape successful, parsing prices...");
-          // Try to extract prices from markdown content
-          // Look for price patterns like "RM X.XX" near item keywords
           for (const [item, keywords] of Object.entries(ITEMS)) {
             for (const keyword of keywords) {
-              // Search for keyword followed by a price
               const regex = new RegExp(
                 `${keyword}[\\s\\S]{0,100}?(?:RM|rm)\\s*(\\d+\\.\\d{2})`,
                 "i"
@@ -100,7 +101,6 @@ Deno.serve(async (req) => {
 
         for (const last of lastPrices) {
           if (!existingItems.has(last.item)) {
-            // ±2% random variance
             const variance = (Math.random() - 0.5) * 0.04;
             const newPrice = Math.round(last.price_rm * (1 + variance) * 100) / 100;
             results.push({ date: today, item: last.item, price_rm: newPrice });
