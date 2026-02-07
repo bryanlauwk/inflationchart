@@ -4,6 +4,7 @@ import { PriceHeader } from "@/components/PriceHeader";
 import { PriceChart } from "@/components/PriceChart";
 import { HeroStat } from "@/components/HeroStat";
 import { PriceSidebar } from "@/components/PriceSidebar";
+import { PurchasingPowerSummary } from "@/components/PurchasingPowerSummary";
 import { useFoodPrices } from "@/hooks/useFoodPrices";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { t } from "@/lib/translations";
@@ -39,7 +40,10 @@ const Index = () => {
       {/* Chart + sidebar */}
       <main className="mx-auto max-w-7xl px-4 pb-10 md:px-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
-          <PriceChart data={chartData} loading={isLoading} />
+          <div className="space-y-8">
+            <PriceChart data={chartData} loading={isLoading} />
+            <PurchasingPowerSummary onItemSelect={setItem} />
+          </div>
           <PriceSidebar
             stats={stats}
             period={period}
