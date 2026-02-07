@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { PriceHeader } from "@/components/PriceHeader";
 import { PriceChart } from "@/components/PriceChart";
+import { HeroStat } from "@/components/HeroStat";
 import { PriceSidebar } from "@/components/PriceSidebar";
 import { useFoodPrices } from "@/hooks/useFoodPrices";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -27,7 +28,16 @@ const Index = () => {
         onPeriodChange={setPeriod}
       />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 md:px-8 md:py-10">
+      {/* Hero — the "hook" */}
+      <HeroStat
+        item={item}
+        period={period}
+        stats={stats}
+        loading={isLoading}
+      />
+
+      {/* Chart + sidebar */}
+      <main className="mx-auto max-w-7xl px-4 pb-10 md:px-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
           <PriceChart data={chartData} loading={isLoading} />
           <PriceSidebar
