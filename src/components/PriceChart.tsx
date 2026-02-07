@@ -13,7 +13,6 @@ import {
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ChartDataPoint } from "@/hooks/useFoodPrices";
-import { BASKET_SIZE } from "@/hooks/useFoodPrices";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { t } from "@/lib/translations";
@@ -37,10 +36,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       })
     : null;
 
-  const coverage = dataPoint?.coverage as number | undefined;
-  const hasCoverage = coverage != null;
-  const isLowCoverage = hasCoverage && coverage < BASKET_SIZE;
-
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-xl">
       <p className="mb-1.5 text-xs font-medium text-muted-foreground">
@@ -63,17 +58,6 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           </span>
         </p>
       ))}
-      {hasCoverage && (
-        <p
-          className={`mt-1.5 border-t border-border/50 pt-1.5 text-[10px] ${
-            isLowCoverage ? "text-price-red" : "text-muted-foreground/70"
-          }`}
-        >
-          {isLowCoverage ? "⚠ " : ""}
-          {coverage}/{BASKET_SIZE} items
-          {isLowCoverage ? " — low coverage" : ""}
-        </p>
-      )}
     </div>
   );
 };
@@ -121,13 +105,6 @@ export function PriceChart({ data, loading }: PriceChartProps) {
 
   const chartHeight = isMobile ? 350 : 450;
 
-  // Check if this is basket data with coverage info
-  const hasCoverageData = data.some((d) => d.coverage != null);
-  const avgCoverage = hasCoverageData
-    ? Math.round(
-        data.reduce((sum, d) => sum + (d.coverage ?? BASKET_SIZE), 0) / data.length * 10
-      ) / 10
-    : null;
 
   // Compute festival markers within chart date range
   const festivals = useMemo(() => {
@@ -184,31 +161,6 @@ export function PriceChart({ data, loading }: PriceChartProps) {
 
   return (
     <div className="space-y-3">
-      {/* Coverage summary badge for basket */}
-      {hasCoverageData && avgCoverage !== null && (
-        <div className="flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-medium ${
-              avgCoverage < BASKET_SIZE
-                ? "border-price-red/30 bg-price-red/5 text-price-red"
-                : "border-border bg-card text-muted-foreground"
-            }`}
-          >
-            {avgCoverage < BASKET_SIZE ? "⚠" : "✓"}{" "}
-            {lang === "zh"
-              ? `平均覆盖 ${avgCoverage}/${BASKET_SIZE} 品项`
-              : `Avg. ${avgCoverage}/${BASKET_SIZE} items`}
-          </span>
-          {avgCoverage < BASKET_SIZE && (
-            <span className="text-[10px] text-muted-foreground/60">
-              {lang === "zh"
-                ? "覆盖不足可能导致统计偏差"
-                : "Low coverage may cause statistical bias"}
-            </span>
-          )}
-        </div>
-      )}
-
       <div className="rounded-lg border border-border bg-chart-bg p-4 md:p-6">
         <ResponsiveContainer width="100%" height={chartHeight}>
           {expanded ? (
