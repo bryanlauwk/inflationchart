@@ -73,12 +73,12 @@ const translations = {
 
   // Data sources
   "data.source": {
-    zh: "价格数据来自 KPDN PriceCatcher。CPI 数据来自马来西亚统计局。每日 11:30 PM MYT 更新。",
-    en: "Prices from KPDN PriceCatcher. CPI data from Department of Statistics Malaysia. Updated daily at 11:30 PM MYT.",
+    zh: "价格数据来自 OpenDOSM PriceCatcher（马来西亚国内贸易部）。CPI 数据来自马来西亚统计局。",
+    en: "Prices from OpenDOSM PriceCatcher (Ministry of Domestic Trade). CPI from Department of Statistics Malaysia.",
   },
   "data.disclaimer": {
-    zh: "历史数据基于实际通胀趋势进行模拟建模。实时抓取从今日开始。",
-    en: "Historical data uses synthetic modeling based on actual inflation trends. Real-time scraping begins from today.",
+    zh: "价格为全国各店铺每日平均值。部分商品在某些日期可能无数据。",
+    en: "Prices are daily national averages across all premises. Some items may have sparse coverage on certain dates.",
   },
 
   // Footer
