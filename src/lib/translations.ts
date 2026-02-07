@@ -1,8 +1,12 @@
 const translations = {
   // Page title
   pageTitle: {
-    zh: "马来西亚食品价格 —— 实际购买力",
-    en: "Malaysian Food Prices — Real Purchasing Power",
+    zh: "你的菜钱到底够不够用？",
+    en: "Is Your Grocery Bill Lying to You?",
+  },
+  pageSubtitle: {
+    zh: "追踪马来西亚食品真实价格 —— 扣除通胀后的购买力",
+    en: "Track real food prices across Malaysia — adjusted for inflation",
   },
 
   // Items — Staples

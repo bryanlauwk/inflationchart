@@ -31,12 +31,17 @@ export function PriceHeader({
   const { lang, toggleLang } = useLanguage();
 
   return (
-    <header className="border-b border-border px-4 py-10 md:py-12">
+    <header className="border-b border-border px-4 py-10 md:py-14">
       <div className="mx-auto max-w-7xl">
         <div className="flex items-start justify-between">
-          <h1 className="font-serif text-2xl font-bold leading-tight text-foreground md:text-4xl">
-            {t("pageTitle", lang)}
-          </h1>
+          <div>
+            <h1 className="font-serif text-3xl font-bold leading-[1.1] tracking-tight text-foreground md:text-5xl">
+              {t("pageTitle", lang)}
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground md:mt-3 md:text-base">
+              {t("pageSubtitle", lang)}
+            </p>
+          </div>
           <div className="mt-1 flex shrink-0 items-center gap-3">
             <Link
               to="/about"
