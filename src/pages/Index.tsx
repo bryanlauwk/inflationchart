@@ -49,6 +49,24 @@ const Index = () => {
         >
           @bryanlauwk
         </a>{" "}
+        · {t("footer.dataBy", lang)}{" "}
+        <a
+          href="https://open.dosm.gov.my"
+          className="text-primary hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          OpenDOSM
+        </a>
+        {" & "}
+        <a
+          href="https://www.dosm.gov.my"
+          className="text-primary hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          DOSM
+        </a>{" "}
         · {t("footer.inspiredBy", lang)}{" "}
         <a
           href="https://inflationchart.com"
