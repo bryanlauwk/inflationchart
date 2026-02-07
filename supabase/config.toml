@@ -1,1 +1,7 @@
 project_id = "uxzyicmsastcrldfvgpf"
+
+[functions.backfill-prices]
+verify_jwt = false
+
+[functions.scrape-prices]
+verify_jwt = false
