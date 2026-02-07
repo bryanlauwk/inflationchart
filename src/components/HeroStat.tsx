@@ -53,6 +53,13 @@ export function HeroStat({ item, period, stats, loading }: HeroStatProps) {
               {itemLabel}
             </h2>
 
+            {/* Basket methodology badge */}
+            {item === "basket" && (
+              <p className="mt-1.5 text-[11px] tracking-wide text-muted-foreground/70">
+                {t("basket.badge", lang)}
+              </p>
+            )}
+
             <p className="mt-2 text-sm text-muted-foreground md:text-base">
               {lang === "zh" ? "现在要花" : "now costs"}
             </p>

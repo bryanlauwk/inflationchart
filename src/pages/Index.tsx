@@ -69,25 +69,7 @@ const Index = () => {
         >
           OpenDOSM
         </a>
-        {" & "}
-        <a
-          href="https://www.dosm.gov.my"
-          className="text-primary hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          DOSM
-        </a>{" "}
-        · {t("footer.inspiredBy", lang)}{" "}
-        <a
-          href="https://inflationchart.com"
-          className="text-primary hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          inflationchart.com
-        </a>{" "}
-        ·{" "}
+        {" · "}
         <Link to="/about" className="text-primary hover:underline">
           {t("nav.about", lang)}
         </Link>

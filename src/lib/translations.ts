@@ -131,12 +131,17 @@ const translations = {
 
   // Footer
   "footer.builtBy": { zh: "开发者", en: "Built by" },
-  "footer.dataBy": { zh: "数据来源", en: "Data by" },
-  "footer.inspiredBy": { zh: "灵感来自", en: "Inspired by" },
+  "footer.dataBy": { zh: "数据", en: "Data" },
 
   // Current prices grid
   "grid.noData": { zh: "暂无价格数据", en: "No price data available" },
   "grid.vsYesterday": { zh: "较昨日", en: "vs yesterday" },
+
+  // Basket methodology badge
+  "basket.badge": {
+    zh: "加权菜篮 · 7天滚动窗口 · 10品项全覆盖",
+    en: "Weighted basket · 7-day rolling · All 10 items",
+  },
 
   // About page
   "about.title": {
@@ -172,8 +177,12 @@ const translations = {
     en: "Real Price = Nominal Price ÷ CPI × 100",
   },
   "about.methodBasket": {
-    zh: "综合菜篮 = 当日所有追踪商品平均价格之和",
-    en: "Basket = Sum of all tracked item averages for a given day",
+    zh: "综合菜篮 = Σ(品项价格 × 消费权重)，采用7天滚动窗口确保所有10个核心品项都有数据参与",
+    en: "Basket = Σ(Item Price × Consumption Weight), using a 7-day rolling window to ensure all 10 core items are represented",
+  },
+  "about.methodWeights": {
+    zh: "权重基于马来西亚家庭消费比例：鸡肉(2.0)、白米(1.5)、鸡蛋(1.2)、食用油(1.0)、洋葱(0.8)、白糖(0.7)、牛奶(0.6)、番茄(0.5)、空心菜(0.4)、长豆(0.3)",
+    en: "Weights based on Malaysian household consumption: Chicken(2.0), Rice(1.5), Eggs(1.2), Cooking Oil(1.0), Onion(0.8), Sugar(0.7), Milk(0.6), Tomato(0.5), Kangkung(0.4), Long Beans(0.3)",
   },
   "about.methodChange": {
     zh: "变动百分比 = (最新价格 − 起始价格) ÷ 起始价格 × 100",
@@ -198,6 +207,7 @@ const translations = {
       "部分商品在某些日期的调查覆盖较少",
       "价格代表全国平均水平，可能无法反映各地区差异",
       "异常价格（超出合理范围）在处理时已被自动过滤",
+      "食用油仅追踪标准1kg瓶装（代码1091），排除补贴袋装及不同规格以确保数据一致性",
     ],
     en: [
       "PriceCatcher data is typically available within 1–2 days",
@@ -205,6 +215,7 @@ const translations = {
       "Some items have sparse daily coverage (fewer surveyor visits)",
       "Prices represent national averages and may not reflect regional variation",
       "Outlier prices (beyond reasonable bounds) are automatically filtered during processing",
+      "Cooking oil tracks only standard 1kg bottles (code 1091), excluding subsidized packets and other sizes for data consistency",
     ],
   },
   "about.creditsTitle": {

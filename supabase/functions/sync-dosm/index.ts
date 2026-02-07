@@ -7,6 +7,8 @@ const corsHeaders = {
 };
 
 // ── Item code mapping ─────────────────────────────────────────────
+// Only codes representing the SAME unit/size are grouped together.
+// Mixing different pack sizes causes price volatility artifacts.
 const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
   // Staples
   chicken:    { codes: [1],    divisor: 1 },
@@ -14,7 +16,13 @@ const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
   rice:       { codes: [904, 992, 1445, 1581, 1582], divisor: 10 },
   milk:       { codes: [224, 225, 1852],  divisor: 1 },
   sugar:      { codes: [1589, 1590], divisor: 1 },
-  cookingoil: { codes: [918, 1091, 1092, 1093], divisor: 1 },
+  // Cooking oil: ONLY code 1091 (standard 1kg bottle, ~RM7).
+  // Excluded codes:
+  //   918  — subsidized 1kg packet (~RM2.50), price-controlled, not market-representative
+  //   1092 — 2kg bottle, different unit size
+  //   1093 — 5kg bottle, different unit size
+  // Mixing these caused RM2.50–RM7.00 volatility artifacts in the basket.
+  cookingoil: { codes: [1091], divisor: 1 },
   // Vegetables
   tomato:     { codes: [114],  divisor: 1 },
   longbeans:  { codes: [98],   divisor: 1 },
@@ -38,13 +46,31 @@ const MAX_PRICE: Record<string, number> = {
   spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20,
 };
 
-// Core basket items — only these contribute to "basket" total.
-// These have consistent daily survey coverage, unlike newer items.
+// ── Basket configuration ──────────────────────────────────────────
+// Core basket items — only these contribute to the "basket" composite.
 const BASKET_ITEMS = new Set([
   "chicken", "eggs", "rice", "milk", "sugar",
   "cookingoil", "tomato", "longbeans", "kangkung", "onion",
 ]);
-const MIN_BASKET_ITEMS = 7; // require ≥7 of 10 core items; normalize to full 10
+
+// Consumption-based weights reflecting Malaysian household spending.
+// Higher weight = larger share of typical household food expenditure.
+// Total weight = 9.0
+const BASKET_WEIGHTS: Record<string, number> = {
+  chicken:    2.0,  // major protein, consumed daily
+  rice:       1.5,  // primary staple
+  eggs:       1.2,  // essential protein
+  cookingoil: 1.0,  // daily cooking essential
+  onion:      0.8,  // essential cooking ingredient
+  sugar:      0.7,  // common staple
+  milk:       0.6,  // supplementary
+  tomato:     0.5,  // common vegetable
+  kangkung:   0.4,  // popular local vegetable
+  longbeans:  0.3,  // common vegetable
+};
+
+// Rolling window size in days — looks back up to N days for each item
+const ROLLING_WINDOW_DAYS = 7;
 
 const CODE_TO_ITEM: Map<number, { item: string; divisor: number }> = new Map();
 for (const [item, { codes, divisor }] of Object.entries(ITEM_MAP)) {
@@ -53,6 +79,14 @@ for (const [item, { codes, divisor }] of Object.entries(ITEM_MAP)) {
   }
 }
 const ALL_CODES = new Set(CODE_TO_ITEM.keys());
+
+// ── Helpers ───────────────────────────────────────────────────────
+
+function subtractDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00Z"); // noon UTC to avoid DST edge cases
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().split("T")[0];
+}
 
 // ── CSV Processing ────────────────────────────────────────────────
 
@@ -120,35 +154,73 @@ async function processMonthCSV(month: string): Promise<
 
   console.log(`${month}: matched ${matched} records, rejected ${rejected} outliers`);
 
+  // ── Step 1: Compute individual item daily averages ──
   const results: Array<{ date: string; item: string; price_rm: number }> = [];
 
-  // Track basket-eligible items per date
-  const basketByDate: Record<string, { total: number; count: number }> = {};
+  // Per-item-per-date lookup (for basket rolling window)
+  const itemPriceByDate: Record<string, Record<string, number>> = {};
 
   for (const [key, { sum, count }] of Object.entries(acc)) {
     const [date, item] = key.split("|");
     const avgPrice = Math.round((sum / count) * 100) / 100;
     results.push({ date, item, price_rm: avgPrice });
 
-    // Only core basket items contribute to the basket total
+    // Track basket-eligible items for rolling window
     if (BASKET_ITEMS.has(item)) {
-      if (!basketByDate[date]) basketByDate[date] = { total: 0, count: 0 };
-      basketByDate[date].total += avgPrice;
-      basketByDate[date].count += 1;
+      if (!itemPriceByDate[date]) itemPriceByDate[date] = {};
+      itemPriceByDate[date][item] = avgPrice;
     }
   }
 
-  // Emit normalized basket: scale to represent all 10 core items
-  const BASKET_SIZE = BASKET_ITEMS.size; // 10
-  for (const [date, { total, count }] of Object.entries(basketByDate)) {
-    if (count >= MIN_BASKET_ITEMS) {
-      // Normalize: if 8 of 10 items present with sum=46, basket = (46/8)*10 = 57.50
-      const normalized = Math.round((total / count) * BASKET_SIZE * 100) / 100;
-      results.push({ date, item: "basket", price_rm: normalized });
+  // ── Step 2: Compute weighted basket with 7-day rolling window ──
+  // For each date, look back up to ROLLING_WINDOW_DAYS to find the latest
+  // price for each basket item. Only emit basket when ALL items are found.
+  const allDates = [...new Set(results.map((r) => r.date))].sort();
+  const BASKET_ITEM_LIST = [...BASKET_ITEMS];
+
+  let basketEmitted = 0;
+  let basketSkipped = 0;
+
+  for (const date of allDates) {
+    const resolved: Record<string, number> = {};
+
+    for (const bItem of BASKET_ITEM_LIST) {
+      // Search current date, then look back up to ROLLING_WINDOW_DAYS - 1
+      for (let d = 0; d < ROLLING_WINDOW_DAYS; d++) {
+        const lookDate = d === 0 ? date : subtractDays(date, d);
+        if (itemPriceByDate[lookDate]?.[bItem] != null) {
+          resolved[bItem] = itemPriceByDate[lookDate][bItem];
+          break;
+        }
+      }
+    }
+
+    // Require ALL basket items to be present within the rolling window
+    if (Object.keys(resolved).length === BASKET_ITEMS.size) {
+      let weightedSum = 0;
+      for (const [item, price] of Object.entries(resolved)) {
+        weightedSum += price * (BASKET_WEIGHTS[item] ?? 1);
+      }
+      results.push({
+        date,
+        item: "basket",
+        price_rm: Math.round(weightedSum * 100) / 100,
+      });
+      basketEmitted++;
     } else {
-      console.log(`Skipping basket for ${date}: only ${count}/${MIN_BASKET_ITEMS} core items`);
+      const missing = BASKET_ITEM_LIST.filter((i) => !resolved[i]);
+      basketSkipped++;
+      if (basketSkipped <= 5) {
+        console.log(
+          `Skipping basket for ${date}: missing [${missing.join(", ")}] in ${ROLLING_WINDOW_DAYS}-day window`
+        );
+      }
     }
   }
+
+  console.log(
+    `${month} basket: ${basketEmitted} emitted, ${basketSkipped} skipped (require all ${BASKET_ITEMS.size} items in ${ROLLING_WINDOW_DAYS}-day window)`
+  );
 
   return results;
 }
