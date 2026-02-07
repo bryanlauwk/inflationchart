@@ -29,7 +29,7 @@ export function HeroStat({ item, period, stats, loading }: HeroStatProps) {
 
   return (
     <motion.section
-      className="py-12 md:py-20"
+      className="py-14 md:py-24"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
@@ -64,8 +64,17 @@ export function HeroStat({ item, period, stats, loading }: HeroStatProps) {
               {lang === "zh" ? "现在要花" : "now costs"}
             </p>
 
-            <div className="mt-3 flex items-baseline gap-4">
-              <span className="font-serif text-7xl font-bold tabular-nums tracking-tight text-foreground md:text-9xl">
+            {/* RM figure with warm radial glow */}
+            <div className="relative mt-3 flex items-baseline gap-4">
+              {/* Ambient glow behind the figure */}
+              <div
+                className="pointer-events-none absolute -inset-x-8 -inset-y-4 rounded-3xl"
+                style={{
+                  background: "radial-gradient(ellipse at 30% 50%, hsl(15 55% 48% / 0.08) 0%, transparent 70%)",
+                }}
+                aria-hidden="true"
+              />
+              <span className="relative font-serif text-7xl font-bold tabular-nums tracking-tight text-foreground md:text-9xl">
                 RM{animatedCost.toFixed(2)}
               </span>
             </div>

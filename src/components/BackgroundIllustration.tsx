@@ -1,8 +1,22 @@
 /**
  * Japanese-inspired decorative SVG illustrations.
- * Rendered at moderate opacity to be visible yet not compete with data.
+ * Rendered at 25-30% opacity for Eslite-inspired visual depth.
  * All elements are aria-hidden and pointer-events-none.
  */
+
+/* ── Washi paper texture overlay ──────────────────────────────── */
+export function WashiTexture() {
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 z-0 select-none"
+      aria-hidden="true"
+      style={{
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='4' stitchTiles='stitch' type='fractalNoise'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E")`,
+        opacity: 0.4,
+      }}
+    />
+  );
+}
 
 /* ── Seigaiha (wave crest) pattern divider ─────────────────────── */
 export function SeigaihaWaves({ className = "" }: { className?: string }) {
@@ -25,19 +39,19 @@ export function SeigaihaWaves({ className = "" }: { className?: string }) {
               d={`M${x - 40} 80 A40 40 0 0 1 ${x + 40} 80`}
               stroke="hsl(var(--primary))"
               strokeWidth="1.2"
-              opacity="0.25"
+              opacity="0.3"
             />
             <path
               d={`M${x - 30} 80 A30 30 0 0 1 ${x + 30} 80`}
               stroke="hsl(var(--primary))"
               strokeWidth="0.9"
-              opacity="0.18"
+              opacity="0.22"
             />
             <path
               d={`M${x - 20} 80 A20 20 0 0 1 ${x + 20} 80`}
               stroke="hsl(var(--primary))"
               strokeWidth="0.7"
-              opacity="0.12"
+              opacity="0.15"
             />
           </g>
         ))}
@@ -48,13 +62,13 @@ export function SeigaihaWaves({ className = "" }: { className?: string }) {
               d={`M${x - 40} 40 A40 40 0 0 1 ${x + 40} 40`}
               stroke="hsl(var(--primary))"
               strokeWidth="1.2"
-              opacity="0.2"
+              opacity="0.25"
             />
             <path
               d={`M${x - 30} 40 A30 30 0 0 1 ${x + 30} 40`}
               stroke="hsl(var(--primary))"
               strokeWidth="0.9"
-              opacity="0.14"
+              opacity="0.18"
             />
           </g>
         ))}
@@ -72,7 +86,7 @@ export function HeroIllustration({ className = "" }: { className?: string }) {
     >
       <svg
         viewBox="0 0 800 400"
-        className="absolute right-0 top-1/2 h-full w-auto -translate-y-1/2 opacity-[0.15] md:opacity-[0.2]"
+        className="absolute right-0 top-1/2 h-full w-auto -translate-y-1/2 opacity-[0.25] md:opacity-[0.3]"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -153,18 +167,18 @@ export function FooterMotifs({ className = "" }: { className?: string }) {
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* Small leaf sprigs */}
-        <g stroke="hsl(var(--primary))" strokeLinecap="round" opacity="0.3" strokeWidth="1.5">
+        <g stroke="hsl(var(--primary))" strokeLinecap="round" opacity="0.35" strokeWidth="1.5">
           {/* Left sprig */}
           <path d="M180 40 Q190 25 200 15" />
           <path d="M190 32 Q185 22 192 14" />
           <path d="M195 28 Q200 20 198 12" />
           
           {/* Center dot cluster (like seeds) */}
-          <circle cx="300" cy="30" r="2" fill="hsl(var(--primary))" stroke="none" opacity="0.35" />
-          <circle cx="288" cy="27" r="1.5" fill="hsl(var(--primary))" stroke="none" opacity="0.3" />
-          <circle cx="312" cy="27" r="1.5" fill="hsl(var(--primary))" stroke="none" opacity="0.3" />
-          <circle cx="293" cy="36" r="1.8" fill="hsl(var(--primary))" stroke="none" opacity="0.3" />
-          <circle cx="307" cy="36" r="1.8" fill="hsl(var(--primary))" stroke="none" opacity="0.3" />
+          <circle cx="300" cy="30" r="2" fill="hsl(var(--primary))" stroke="none" opacity="0.4" />
+          <circle cx="288" cy="27" r="1.5" fill="hsl(var(--primary))" stroke="none" opacity="0.35" />
+          <circle cx="312" cy="27" r="1.5" fill="hsl(var(--primary))" stroke="none" opacity="0.35" />
+          <circle cx="293" cy="36" r="1.8" fill="hsl(var(--primary))" stroke="none" opacity="0.35" />
+          <circle cx="307" cy="36" r="1.8" fill="hsl(var(--primary))" stroke="none" opacity="0.35" />
 
           {/* Right sprig */}
           <path d="M420 40 Q410 25 400 15" />
@@ -194,14 +208,14 @@ export function MistBand({ className = "" }: { className?: string }) {
           d="M0 20 Q100 8 200 18 Q300 28 400 15 Q500 5 600 20 Q700 32 800 16 Q900 4 1000 22 Q1100 30 1200 18"
           stroke="hsl(var(--primary))"
           strokeWidth="1.5"
-          opacity="0.2"
+          opacity="0.25"
           strokeLinecap="round"
         />
         <path
           d="M0 25 Q150 35 300 22 Q450 12 600 28 Q750 38 900 20 Q1050 10 1200 24"
           stroke="hsl(var(--primary))"
           strokeWidth="0.8"
-          opacity="0.12"
+          opacity="0.15"
           strokeLinecap="round"
         />
       </svg>

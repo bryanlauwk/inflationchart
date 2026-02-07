@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -42,20 +41,12 @@ export function PriceHeader({
               {t("pageSubtitle", lang)}
             </p>
           </div>
-          <div className="mt-1 flex shrink-0 items-center gap-3">
-            <Link
-              to="/about"
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
-            >
-              {t("nav.about", lang)}
-            </Link>
-            <button
-              onClick={toggleLang}
-              className="text-sm text-muted-foreground transition-colors hover:text-primary"
-            >
-              {lang === "zh" ? "EN" : "中"}
-            </button>
-          </div>
+          <button
+            onClick={toggleLang}
+            className="mt-1 shrink-0 text-sm text-muted-foreground transition-colors hover:text-primary"
+          >
+            {lang === "zh" ? "EN" : "中"}
+          </button>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">

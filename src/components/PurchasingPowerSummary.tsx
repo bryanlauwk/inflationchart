@@ -4,26 +4,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { t, type TranslationKey } from "@/lib/translations";
 import type { FoodItem } from "@/hooks/useFoodPrices";
 
-const ITEM_EMOJI: Record<string, string> = {
-  eggs: "🥚",
-  watermelon: "🍉",
-  banana: "🍌",
-  longbeans: "🫘",
-  rice: "🍚",
-  papaya: "🍈",
-  tomato: "🍅",
-  kangkung: "🥬",
-  spinach: "🥬",
-  milk: "🥛",
-  chili: "🌶️",
-  chicken: "🐔",
-  sugar: "🍬",
-  lime: "🍋",
-  cabbage: "🥬",
-  onion: "🧅",
-  cookingoil: "🫒",
-};
-
 interface ItemRowProps {
   item: ItemAnalysis;
   lang: "zh" | "en";
@@ -33,7 +13,6 @@ interface ItemRowProps {
 }
 
 function ItemRow({ item, lang, index, isLoser, onItemSelect }: ItemRowProps) {
-  const emoji = ITEM_EMOJI[item.item] || "🍽️";
   const label = t(`item.${item.item}` as TranslationKey, lang);
 
   return (
@@ -44,7 +23,12 @@ function ItemRow({ item, lang, index, isLoser, onItemSelect }: ItemRowProps) {
       transition={{ delay: index * 0.06, duration: 0.3 }}
       onClick={() => onItemSelect?.(item.item)}
     >
-      <span className="text-lg">{emoji}</span>
+      {/* Terracotta dot indicator instead of emoji */}
+      <span
+        className={`h-2 w-2 shrink-0 rounded-full ${
+          item.realChangePct > 0 ? "bg-price-red/60" : "bg-price-green/60"
+        }`}
+      />
       <span className="flex-1 text-sm font-medium text-foreground">{label}</span>
       <span className="text-xs text-muted-foreground tabular-nums">
         RM{item.price2022.toFixed(2)} → RM{item.priceLatest.toFixed(2)}
@@ -72,7 +56,7 @@ export function PurchasingPowerSummary({ onItemSelect }: PurchasingPowerSummaryP
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-card p-6">
+      <div className="rounded-lg border border-border/40 bg-card p-6">
         <div className="space-y-3">
           <div className="h-5 w-48 animate-pulse rounded bg-muted" />
           <div className="h-4 w-full animate-pulse rounded bg-muted" />
@@ -86,7 +70,7 @@ export function PurchasingPowerSummary({ onItemSelect }: PurchasingPowerSummaryP
 
   return (
     <motion.div
-      className="rounded-lg border border-border bg-card p-5 md:p-6"
+      className="rounded-lg border border-border/40 bg-card/80 p-5 backdrop-blur-sm md:p-6"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -147,7 +131,7 @@ export function PurchasingPowerSummary({ onItemSelect }: PurchasingPowerSummaryP
       </div>
 
       {/* Footer note */}
-      <p className="mt-5 border-t border-border pt-4 text-[11px] leading-relaxed text-muted-foreground/60">
+      <p className="mt-5 border-t border-border/30 pt-4 text-[11px] leading-relaxed text-muted-foreground/50">
         {t("analysis.footnote", lang)}
       </p>
     </motion.div>

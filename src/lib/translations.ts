@@ -151,88 +151,6 @@ const translations = {
     en: "Weighted basket · 14-day rolling · All 10 items",
   },
 
-  // About page
-  "about.title": {
-    zh: "关于本项目",
-    en: "About This Project",
-  },
-  "about.whatTitle": {
-    zh: "追踪内容",
-    en: "What This Tracks",
-  },
-  "about.whatBody": {
-    zh: "本项目追踪马来西亚 17 种食品（7 种主食 + 7 种蔬菜 + 4 种水果）及 1 个综合菜篮的每日全国平均价格。价格数据来自全国约 5,000 家零售店的实地调查。通过消费者物价指数（CPI）调整后，展示食品的真实购买力变化。",
-    en: "This project tracks daily national average prices of 17 Malaysian food items (7 staples + 7 vegetables + 4 fruits) plus a composite basket. Prices come from field surveys at approximately 5,000+ retail premises nationwide. CPI-adjusted 'real prices' reveal true purchasing power changes.",
-  },
-  "about.pipelineTitle": {
-    zh: "数据管道",
-    en: "Data Pipeline",
-  },
-  "about.pipelineBody": {
-    zh: "价格数据来源于马来西亚国内贸易及生活成本部（KPDN）的 PriceCatcher 调查，通过 OpenDOSM 平台以月度 CSV 文件发布（storage.data.gov.my）。每个 CSV 文件包含数百万条来自全国各地的个别价格记录。我们的管道解析这些文件，按商品和日期计算全国平均价格。消费者物价指数（CPI）数据来自马来西亚统计局（DOSM），通过 OpenDOSM API（cpi_core 数据集）获取。",
-    en: "Price data is sourced from the PriceCatcher survey by the Ministry of Domestic Trade and Cost of Living (KPDN), published via the OpenDOSM platform as monthly CSV files (storage.data.gov.my). Each CSV contains millions of individual price observations from retail premises nationwide. Our pipeline parses these files and computes national daily averages per item. CPI data comes from the Department of Statistics Malaysia (DOSM) via the OpenDOSM API (cpi_core dataset).",
-  },
-  "about.methodTitle": {
-    zh: "计算方法",
-    en: "Calculation Method",
-  },
-  "about.methodNominal": {
-    zh: "名义价格：某一商品在某日全国所有调查员报告价格的简单平均值",
-    en: "Nominal Price: Simple average of all surveyor-reported prices for an item on a given day",
-  },
-  "about.methodReal": {
-    zh: "实际价格 = 名义价格 ÷ CPI × 100",
-    en: "Real Price = Nominal Price ÷ CPI × 100",
-  },
-  "about.methodBasket": {
-    zh: "综合菜篮 = Σ(品项价格 × 消费权重)，采用14天滚动窗口确保所有10个核心品项都有数据参与",
-    en: "Basket = Σ(Item Price × Consumption Weight), using a 14-day rolling window to ensure all 10 core items are represented",
-  },
-  "about.methodWeights": {
-    zh: "权重基于马来西亚家庭消费比例：鸡肉(2.0)、白米(1.5)、鸡蛋(1.2)、食用油(1.0)、洋葱(0.8)、白糖(0.7)、牛奶(0.6)、番茄(0.5)、空心菜(0.4)、长豆(0.3)",
-    en: "Weights based on Malaysian household consumption: Chicken(2.0), Rice(1.5), Eggs(1.2), Cooking Oil(1.0), Onion(0.8), Sugar(0.7), Milk(0.6), Tomato(0.5), Kangkung(0.4), Long Beans(0.3)",
-  },
-  "about.methodChange": {
-    zh: "变动百分比 = (最新价格 − 起始价格) ÷ 起始价格 × 100",
-    en: "Percentage change = (Latest − Earliest) ÷ Earliest × 100",
-  },
-  "about.mappingTitle": {
-    zh: "商品代码对照表",
-    en: "Item Code Mapping",
-  },
-  "about.mappingHeaders": {
-    zh: ["商品", "PriceCatcher 代码", "单位", "说明"],
-    en: ["Item", "PriceCatcher Codes", "Unit", "Notes"],
-  },
-  "about.freshnessTitle": {
-    zh: "数据时效与局限",
-    en: "Data Freshness & Limitations",
-  },
-  "about.freshnessItems": {
-    zh: [
-      "数据每月自动更新一次（每月1日 00:00 MYT）",
-      "每次更新同步当月及上月数据，确保延迟发布的数据不遗漏",
-      "CPI 数据为月度数据，通常滞后约 2 个月",
-      "部分商品在某些日期的调查覆盖较少",
-      "价格代表全国平均水平，可能无法反映各地区差异",
-      "异常价格（超出合理范围）在处理时已被自动过滤",
-      "食用油仅追踪标准1kg瓶装（代码1091），排除补贴袋装及不同规格以确保数据一致性",
-    ],
-    en: [
-      "Data is automatically updated once per month (1st of each month, 00:00 MYT)",
-      "Each update syncs current and previous month data to capture late publications",
-      "CPI data is monthly, published with approximately 2-month lag",
-      "Some items have sparse daily coverage (fewer surveyor visits)",
-      "Prices represent national averages and may not reflect regional variation",
-      "Outlier prices (beyond reasonable bounds) are automatically filtered during processing",
-      "Cooking oil tracks only standard 1kg bottles (code 1091), excluding subsidized packets and other sizes for data consistency",
-    ],
-  },
-  "about.creditsTitle": {
-    zh: "致谢与链接",
-    en: "Credits & Links",
-  },
-
   // Purchasing power analysis
   "analysis.title": {
     zh: "四年购买力变化",
@@ -251,8 +169,8 @@ const translations = {
     en: "Subsidized / Price-Stable",
   },
   "analysis.footnote": {
-    zh: "实际价格变化 = 名义价格变化 − 通胀率。负值表示购买力增加（价格涨幅低于通胀）。数据基于全国每日平均价格，每月自动更新。",
-    en: "Real change = nominal change − inflation. Negative values mean purchasing power increased (price rose less than inflation). Based on national daily averages, updated monthly.",
+    zh: "实际价格变化 = 名义价格变化 − 通胀率。负值表示购买力增加（价格涨幅低于通胀）。数据基于全国每日平均价格，每日自动更新。",
+    en: "Real change = nominal change − inflation. Negative values mean purchasing power increased (price rose less than inflation). Based on national daily averages, updated daily.",
   },
 } as const;
 
