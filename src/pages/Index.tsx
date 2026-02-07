@@ -5,6 +5,7 @@ import { PriceChart } from "@/components/PriceChart";
 import { HeroStat } from "@/components/HeroStat";
 import { PriceSidebar } from "@/components/PriceSidebar";
 import { PurchasingPowerSummary } from "@/components/PurchasingPowerSummary";
+import { HeroIllustration, SeigaihaWaves, MistBand, FooterMotifs } from "@/components/BackgroundIllustration";
 import { useFoodPrices } from "@/hooks/useFoodPrices";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { t } from "@/lib/translations";
@@ -29,19 +30,29 @@ const Index = () => {
         onPeriodChange={setPeriod}
       />
 
-      {/* Hero — the "hook" */}
-      <HeroStat
-        item={item}
-        period={period}
-        stats={stats}
-        loading={isLoading}
-      />
+      {/* Hero — the "hook" with sumi-e illustration background */}
+      <div className="relative">
+        <HeroIllustration />
+        <HeroStat
+          item={item}
+          period={period}
+          stats={stats}
+          loading={isLoading}
+        />
+      </div>
+
+      {/* Seigaiha wave divider */}
+      <SeigaihaWaves className="mx-auto max-w-7xl px-4 md:px-8" />
 
       {/* Chart + sidebar */}
       <main className="mx-auto max-w-7xl px-4 pb-10 md:px-8">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
           <div className="space-y-8">
             <PriceChart data={chartData} loading={isLoading} />
+
+            {/* Mist band between chart and analysis */}
+            <MistBand />
+
             <PurchasingPowerSummary onItemSelect={setItem} />
           </div>
           <PriceSidebar
@@ -55,6 +66,7 @@ const Index = () => {
       </main>
 
       <footer className="border-t border-border px-4 py-10 text-center text-xs text-muted-foreground">
+        <FooterMotifs className="mb-4" />
         {t("footer.builtBy", lang)}{" "}
         <a
           href="https://bryanlauwk.fun"
