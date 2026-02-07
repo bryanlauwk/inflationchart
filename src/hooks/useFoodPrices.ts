@@ -21,7 +21,7 @@ export type FoodItem =
   | "watermelon"
   | "lime";
 
-export type TimePeriod = "1y" | "2y" | "all";
+export type TimePeriod = "1y" | "2y" | "3y" | "4y" | "all";
 
 export interface ChartDataPoint {
   date: string;
@@ -64,8 +64,12 @@ function getStartDate(period: TimePeriod): string {
     now.setFullYear(now.getFullYear() - 1);
   } else if (period === "2y") {
     now.setFullYear(now.getFullYear() - 2);
+  } else if (period === "3y") {
+    now.setFullYear(now.getFullYear() - 3);
+  } else if (period === "4y") {
+    now.setFullYear(now.getFullYear() - 4);
   } else {
-    return "2024-01-01";
+    return "2022-01-01";
   }
   return now.toISOString().split("T")[0];
 }
