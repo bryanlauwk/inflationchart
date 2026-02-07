@@ -90,11 +90,13 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
       const prices = pricesRes.data || [];
       const cpiData = cpiRes.data || [];
 
-      // Build CPI lookup by month
+      // Build CPI lookup by month and track the latest known CPI
       const cpiByMonth: Record<string, number> = {};
+      let latestCpi = 100;
       for (const c of cpiData) {
         const monthKey = c.date.substring(0, 7);
         cpiByMonth[monthKey] = c.value;
+        latestCpi = c.value; // ascending order, so last = latest
       }
 
       // Sample data to avoid too many points (max ~365 points)
@@ -104,7 +106,7 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
       for (let i = 0; i < prices.length; i += sampleRate) {
         const p = prices[i];
         const monthKey = p.date.substring(0, 7);
-        const cpi = cpiByMonth[monthKey] || 100;
+        const cpi = cpiByMonth[monthKey] || latestCpi;
         const real = Math.round((p.price_rm / cpi) * 100 * 100) / 100;
 
         chartData.push({
@@ -125,7 +127,7 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
         const lastInChart = chartData[chartData.length - 1];
         if (!lastInChart || lastInChart.dateRaw !== last.date) {
           const monthKey = last.date.substring(0, 7);
-          const cpi = cpiByMonth[monthKey] || 100;
+          const cpi = cpiByMonth[monthKey] || latestCpi;
           chartData.push({
             dateRaw: last.date,
             date: new Date(last.date).toLocaleDateString("en", {
