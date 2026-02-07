@@ -38,6 +38,14 @@ const MAX_PRICE: Record<string, number> = {
   spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20,
 };
 
+// Core basket items — only these contribute to "basket" total.
+// These have consistent daily survey coverage, unlike newer items.
+const BASKET_ITEMS = new Set([
+  "chicken", "eggs", "rice", "milk", "sugar",
+  "cookingoil", "tomato", "longbeans", "kangkung", "onion",
+]);
+const MIN_BASKET_ITEMS = 7; // require ≥7 of 10 core items for a valid basket day
+
 const CODE_TO_ITEM: Map<number, { item: string; divisor: number }> = new Map();
 for (const [item, { codes, divisor }] of Object.entries(ITEM_MAP)) {
   for (const code of codes) {
@@ -113,17 +121,30 @@ async function processMonthCSV(month: string): Promise<
   console.log(`${month}: matched ${matched} records, rejected ${rejected} outliers`);
 
   const results: Array<{ date: string; item: string; price_rm: number }> = [];
-  const basketByDate: Record<string, number> = {};
+
+  // Track basket-eligible items per date
+  const basketByDate: Record<string, { total: number; count: number }> = {};
 
   for (const [key, { sum, count }] of Object.entries(acc)) {
     const [date, item] = key.split("|");
     const avgPrice = Math.round((sum / count) * 100) / 100;
     results.push({ date, item, price_rm: avgPrice });
-    basketByDate[date] = (basketByDate[date] || 0) + avgPrice;
+
+    // Only core basket items contribute to the basket total
+    if (BASKET_ITEMS.has(item)) {
+      if (!basketByDate[date]) basketByDate[date] = { total: 0, count: 0 };
+      basketByDate[date].total += avgPrice;
+      basketByDate[date].count += 1;
+    }
   }
 
-  for (const [date, total] of Object.entries(basketByDate)) {
-    results.push({ date, item: "basket", price_rm: Math.round(total * 100) / 100 });
+  // Only emit basket for days with sufficient item coverage
+  for (const [date, { total, count }] of Object.entries(basketByDate)) {
+    if (count >= MIN_BASKET_ITEMS) {
+      results.push({ date, item: "basket", price_rm: Math.round(total * 100) / 100 });
+    } else {
+      console.log(`Skipping basket for ${date}: only ${count}/${MIN_BASKET_ITEMS} core items`);
+    }
   }
 
   return results;
