@@ -1,12 +1,25 @@
 import { useState } from "react";
-import { Shield, X, ExternalLink, Loader2 } from "lucide-react";
+import { Shield, ExternalLink, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+interface InternalFlag {
+  item: string;
+  type: string;
+  severity: "info" | "warn" | "error";
+  message: string;
+}
+
 interface AuditResult {
-  audit: string;
+  internalChecks: {
+    flags: InternalFlag[];
+    summary: string;
+    errorCount: number;
+    warnCount: number;
+  };
+  aiAudit: string;
   citations: string[];
   dataDate: string;
   itemCount: number;
@@ -37,7 +50,8 @@ export function DataSanityCheck() {
       if (!data?.success) throw new Error(data?.error ?? "Unknown error");
 
       setResult({
-        audit: data.audit,
+        internalChecks: data.internalChecks,
+        aiAudit: data.aiAudit,
         citations: data.citations ?? [],
         dataDate: data.dataDate,
         itemCount: data.itemCount,
@@ -52,30 +66,109 @@ export function DataSanityCheck() {
     }
   };
 
-  // Simple markdown-to-JSX renderer for the audit content
+  const severityIcon = (severity: string) => {
+    switch (severity) {
+      case "error":
+        return <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />;
+      case "warn":
+        return <AlertTriangle className="h-3.5 w-3.5 text-yellow-500 shrink-0" />;
+      default:
+        return <Info className="h-3.5 w-3.5 text-blue-400 shrink-0" />;
+    }
+  };
+
+  const severityBg = (severity: string) => {
+    switch (severity) {
+      case "error":
+        return "border-destructive/30 bg-destructive/5";
+      case "warn":
+        return "border-yellow-500/30 bg-yellow-500/5";
+      default:
+        return "border-blue-400/30 bg-blue-400/5";
+    }
+  };
+
+  // Simple markdown-to-JSX renderer
   const renderMarkdown = (md: string) => {
     const lines = md.split("\n");
     const elements: React.ReactNode[] = [];
+    let inTable = false;
+    let tableRows: string[][] = [];
+
+    const flushTable = () => {
+      if (tableRows.length > 0) {
+        const header = tableRows[0];
+        const body = tableRows.slice(1).filter(
+          (row) => !row.every((cell) => /^[-:]+$/.test(cell.trim()))
+        );
+        elements.push(
+          <div key={`table-${elements.length}`} className="my-3 overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr>
+                  {header.map((cell, ci) => (
+                    <th
+                      key={ci}
+                      className="text-left px-2 py-1.5 border-b border-border/60 text-foreground font-medium"
+                    >
+                      {renderInline(cell.trim())}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {body.map((row, ri) => (
+                  <tr key={ri} className="border-b border-border/20">
+                    {row.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        className="px-2 py-1.5 text-muted-foreground"
+                      >
+                        {renderInline(cell.trim())}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        tableRows = [];
+      }
+      inTable = false;
+    };
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
 
+      // Table detection
+      if (line.includes("|") && line.trim().startsWith("|")) {
+        inTable = true;
+        const cells = line
+          .split("|")
+          .slice(1, -1); // remove empty first/last from leading/trailing |
+        tableRows.push(cells);
+        continue;
+      }
+
+      if (inTable) flushTable();
+
       if (line.startsWith("### ")) {
         elements.push(
           <h3 key={i} className="mt-4 mb-1 text-sm font-semibold text-foreground">
-            {line.slice(4)}
+            {renderInline(line.slice(4))}
           </h3>
         );
       } else if (line.startsWith("## ")) {
         elements.push(
           <h2 key={i} className="mt-5 mb-2 text-base font-bold text-foreground">
-            {line.slice(3)}
+            {renderInline(line.slice(3))}
           </h2>
         );
       } else if (line.startsWith("# ")) {
         elements.push(
           <h1 key={i} className="mt-5 mb-2 text-lg font-bold text-foreground">
-            {line.slice(2)}
+            {renderInline(line.slice(2))}
           </h1>
         );
       } else if (line.startsWith("- ") || line.startsWith("* ")) {
@@ -102,11 +195,11 @@ export function DataSanityCheck() {
       }
     }
 
+    if (inTable) flushTable();
     return elements;
   };
 
   const renderInline = (text: string) => {
-    // Bold
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith("**") && part.endsWith("**")) {
@@ -158,8 +251,8 @@ export function DataSanityCheck() {
             </SheetTitle>
             <SheetDescription className="text-muted-foreground">
               {lang === "zh"
-                ? "由 Perplexity sonar-pro 驱动的交叉验证"
-                : "Cross-verified using Perplexity sonar-pro"}
+                ? "内部统计检查 + Perplexity 市场交叉验证"
+                : "Internal statistical checks + Perplexity market cross-validation"}
             </SheetDescription>
           </SheetHeader>
 
@@ -171,11 +264,18 @@ export function DataSanityCheck() {
                   <div className="h-12 w-12 rounded-full border-2 border-primary/20" />
                   <div className="absolute inset-0 h-12 w-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                 </div>
-                <p className="text-sm text-muted-foreground animate-pulse">
-                  {lang === "zh"
-                    ? "正在与公开数据交叉验证……"
-                    : "Cross-referencing with public data sources…"}
-                </p>
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-muted-foreground animate-pulse">
+                    {lang === "zh"
+                      ? "正在运行统计检查和市场交叉验证……"
+                      : "Running statistical checks & market cross-validation…"}
+                  </p>
+                  <p className="text-xs text-muted-foreground/60">
+                    {lang === "zh"
+                      ? "这可能需要 10-20 秒"
+                      : "This may take 10–20 seconds"}
+                  </p>
+                </div>
               </div>
             )}
 
@@ -222,9 +322,65 @@ export function DataSanityCheck() {
                   )}
                 </div>
 
-                {/* Audit content */}
-                <div className="rounded-lg border border-border/40 bg-background/50 p-4">
-                  {renderMarkdown(result.audit)}
+                {/* Layer 1: Internal Checks */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {lang === "zh" ? "第一层：内部统计检查" : "Layer 1: Internal Statistical Checks"}
+                    </span>
+                    {result.internalChecks.errorCount === 0 && result.internalChecks.warnCount === 0 ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {result.internalChecks.errorCount}🔴 {result.internalChecks.warnCount}🟡
+                      </span>
+                    )}
+                  </div>
+
+                  {result.internalChecks.flags.length === 0 ? (
+                    <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+                      <p className="text-sm text-green-400 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        {lang === "zh"
+                          ? "所有内部检查通过——未检测到异常"
+                          : "All internal checks passed — no anomalies detected"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                      {result.internalChecks.flags.map((flag, i) => (
+                        <div
+                          key={i}
+                          className={`rounded-md border p-2.5 flex items-start gap-2 ${severityBg(flag.severity)}`}
+                        >
+                          {severityIcon(flag.severity)}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-foreground">
+                              {flag.item}
+                              <span className="ml-1.5 text-muted-foreground font-normal">
+                                ({flag.type.replace(/_/g, " ")})
+                              </span>
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {flag.message}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Layer 2: AI Market Cross-Validation */}
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {lang === "zh"
+                      ? "第二层：AI 市场交叉验证"
+                      : "Layer 2: AI Market Cross-Validation"}
+                  </span>
+                  <div className="rounded-lg border border-border/40 bg-background/50 p-4">
+                    {renderMarkdown(result.aiAudit)}
+                  </div>
                 </div>
 
                 {/* Citations */}
