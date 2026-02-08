@@ -10,6 +10,7 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { t, type TranslationKey } from "@/lib/translations";
 import { ITEM_CATEGORIES } from "@/hooks/useFoodPrices";
+import { DataFreshnessBadge } from "@/components/DataFreshnessBadge";
 import type { FoodItem, TimePeriod } from "@/hooks/useFoodPrices";
 
 interface PriceHeaderProps {
@@ -40,6 +41,9 @@ export function PriceHeader({
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground md:mt-3 md:text-base">
               {t("pageSubtitle", lang)}
             </p>
+            <div className="mt-2">
+              <DataFreshnessBadge />
+            </div>
           </div>
           <button
             onClick={toggleLang}
