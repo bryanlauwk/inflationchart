@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.sync-dosm]
 verify_jwt = false
+
+[functions.sanity-check-data]
+verify_jwt = false
