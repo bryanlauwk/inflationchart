@@ -171,7 +171,7 @@ async function processMonthCSV(
   for (const [key, { sum, count }] of Object.entries(acc)) {
     const [date, item] = key.split("|");
     const avgPrice = Math.round((sum / count) * 100) / 100;
-    results.push({ date, item, price_rm: avgPrice });
+    results.push({ date, item, price_rm: avgPrice, source: "dosm" as const });
 
     // Track basket-eligible items for rolling window
     if (BASKET_ITEMS.has(item)) {
@@ -237,6 +237,7 @@ async function processMonthCSV(
         date,
         item: "basket",
         price_rm: Math.round(weightedSum * 100) / 100,
+        source: "dosm" as const,
       });
       basketEmitted++;
     } else {

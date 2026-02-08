@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
                       (Math.cos(dayIndex * 1.3 + item.length * 2) * 0.015);
         const finalPrice = Math.round(trendPrice * (1 + noise) * 100) / 100;
 
-        allPrices.push({ date: dateStr, item, price_rm: finalPrice });
+        allPrices.push({ date: dateStr, item, price_rm: finalPrice, source: "backfill" as const });
         basketTotal += finalPrice;
       }
 
@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
         date: dateStr,
         item: "basket",
         price_rm: Math.round(basketTotal * 100) / 100,
+        source: "backfill" as const,
       });
 
       currentDate.setDate(currentDate.getDate() + 1);

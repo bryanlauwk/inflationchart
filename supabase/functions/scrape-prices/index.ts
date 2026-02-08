@@ -6,6 +6,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Per-item price ceilings (RM) — must match sync-dosm validation
+const MAX_PRICE: Record<string, number> = {
+  chicken: 25, eggs: 8, tomato: 20, longbeans: 20,
+  rice: 10, milk: 20, kangkung: 15, onion: 15,
+  sugar: 10, cookingoil: 15,
+};
+
+// Per-item price floors (RM) — must match sync-dosm validation
+const MIN_PRICE: Record<string, number> = {
+  cookingoil: 5.0,
+};
+
+// Consumption-based weights — must match sync-dosm basket calculation
+const BASKET_WEIGHTS: Record<string, number> = {
+  chicken: 2.0, rice: 1.5, eggs: 1.2, cookingoil: 1.0,
+  onion: 0.8, sugar: 0.7, milk: 0.6, tomato: 0.5,
+  kangkung: 0.4, longbeans: 0.3,
+};
+
 // Item mapping: DB name -> keywords to look for in scraped content
 const ITEMS: Record<string, string[]> = {
   chicken: ["ayam", "chicken", "ayam bersih", "ayam standard"],
@@ -32,7 +51,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const today = new Date().toISOString().split("T")[0];
-    let results: Array<{ date: string; item: string; price_rm: number }> = [];
+    let results: Array<{ date: string; item: string; price_rm: number; source: string }> = [];
 
     // Try Firecrawl scraping first
     if (firecrawlKey) {
@@ -66,8 +85,10 @@ Deno.serve(async (req) => {
               const match = markdown.match(regex);
               if (match) {
                 const price = parseFloat(match[1]);
-                if (price > 0 && price < 100) {
-                  results.push({ date: today, item, price_rm: price });
+                const ceiling = MAX_PRICE[item] ?? 100;
+                const floor = MIN_PRICE[item] ?? 0;
+                if (price > floor && price <= ceiling) {
+                  results.push({ date: today, item, price_rm: price, source: "scrape" });
                   break;
                 }
               }
@@ -85,38 +106,41 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fallback: Generate prices based on last known values with ±2% variance
+    // If scraping returned fewer items than expected, log the gap but do NOT
+    // fabricate synthetic prices.  Inserting random-variance data is
+    // indistinguishable from real observations and silently corrupts the
+    // dataset.  It is better to have a missing day than a fabricated one.
     if (results.length < Object.keys(ITEMS).length) {
-      console.log("Using fallback: generating from last known prices");
-
-      const { data: lastPrices } = await supabase
-        .from("food_prices")
-        .select("item, price_rm")
-        .neq("item", "basket")
-        .order("date", { ascending: false })
-        .limit(Object.keys(ITEMS).length);
-
-      if (lastPrices && lastPrices.length > 0) {
-        const existingItems = new Set(results.map((r) => r.item));
-
-        for (const last of lastPrices) {
-          if (!existingItems.has(last.item)) {
-            const variance = (Math.random() - 0.5) * 0.04;
-            const newPrice = Math.round(last.price_rm * (1 + variance) * 100) / 100;
-            results.push({ date: today, item: last.item, price_rm: newPrice });
-          }
-        }
-      }
+      const scraped = results.map((r) => r.item);
+      const missing = Object.keys(ITEMS).filter((i) => !scraped.includes(i));
+      console.warn(
+        `Scrape incomplete: got ${results.length}/${Object.keys(ITEMS).length} items. ` +
+        `Missing: [${missing.join(", ")}]. Skipping synthetic fallback to preserve data integrity.`
+      );
     }
 
-    // Calculate basket total
-    const basketTotal = results.reduce((sum, r) => sum + r.price_rm, 0);
-    if (basketTotal > 0) {
+    // Calculate weighted basket total (must match sync-dosm formula)
+    // Only emit basket when ALL 10 core items are present
+    const resultItems = new Set(results.map((r) => r.item));
+    const allBasketPresent = Object.keys(BASKET_WEIGHTS).every((i) => resultItems.has(i));
+
+    if (allBasketPresent) {
+      let weightedSum = 0;
+      for (const r of results) {
+        const weight = BASKET_WEIGHTS[r.item];
+        if (weight != null) {
+          weightedSum += r.price_rm * weight;
+        }
+      }
       results.push({
         date: today,
         item: "basket",
-        price_rm: Math.round(basketTotal * 100) / 100,
+        price_rm: Math.round(weightedSum * 100) / 100,
+        source: "scrape",
       });
+    } else {
+      const missing = Object.keys(BASKET_WEIGHTS).filter((i) => !resultItems.has(i));
+      console.warn(`Skipping basket: missing items [${missing.join(", ")}]`);
     }
 
     // Upsert into database
@@ -132,7 +156,7 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         itemsScraped: results.length,
-        method: results.length > 0 ? "scrape+fallback" : "no_data",
+        method: results.length > 0 ? "scrape" : "no_data",
         prices: results,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -102,27 +102,25 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
     queryFn: async (): Promise<{ chartData: ChartDataPoint[]; stats: PriceStats }> => {
       const startDate = getStartDate(period);
 
-      // Fetch prices and CPI in parallel
-      const [pricesRes, cpiRes] = await Promise.all([
-        supabase
-          .from("food_prices")
-          .select("date, price_rm")
-          .eq("item", item)
-          .gte("date", startDate)
-          .order("date", { ascending: true }),
-        supabase
-          .from("indicators")
-          .select("date, value")
-          .eq("type", "CPI")
-          .gte("date", startDate)
-          .order("date", { ascending: true }),
+      // Fetch prices and CPI in parallel using pagination to avoid 1000-row limit
+      const [prices, cpiData] = await Promise.all([
+        fetchAllRows<{ date: string; price_rm: number }>(
+          supabase
+            .from("food_prices")
+            .select("date, price_rm")
+            .eq("item", item)
+            .gte("date", startDate)
+            .order("date", { ascending: true })
+        ),
+        fetchAllRows<{ date: string; value: number }>(
+          supabase
+            .from("indicators")
+            .select("date, value")
+            .eq("type", "CPI")
+            .gte("date", startDate)
+            .order("date", { ascending: true })
+        ),
       ]);
-
-      if (pricesRes.error) throw pricesRes.error;
-      if (cpiRes.error) throw cpiRes.error;
-
-      const prices = pricesRes.data || [];
-      const cpiData = cpiRes.data || [];
 
       // Build CPI lookup by month and track the latest known CPI
       const cpiByMonth: Record<string, number> = {};
