@@ -65,11 +65,11 @@ export const ALL_ITEMS: FoodItem[] = [
 // The 13 core items that contribute to the basket composite
 export const BASKET_ITEMS_LIST = [
   "chicken", "eggs", "rice", "sugar", "cookingoil",
-  "flour", "bread", "fish", "garlic",
+  "flour", "fish", "garlic",
   "tomato", "longbeans", "kangkung", "onion",
 ] as const;
 
-export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 13
+export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 12
 
 function getStartDate(period: TimePeriod): string {
   const now = new Date();
