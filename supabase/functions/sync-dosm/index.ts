@@ -66,7 +66,7 @@ const MIN_PRICE: Record<string, number> = {
 // 13 items covering ~70% of typical Malaysian household food spending.
 const BASKET_ITEMS = new Set([
   "chicken", "eggs", "rice", "sugar", "cookingoil",
-  "flour", "fish", "garlic",
+  "flour", "bread", "fish", "garlic",
   "tomato", "longbeans", "kangkung", "onion",
 ]);
 
@@ -81,11 +81,24 @@ const BASKET_WEIGHTS: Record<string, number> = {
   onion:      0.8,  // essential cooking ingredient
   sugar:      0.7,  // common staple
   flour:      0.6,  // widely used for cooking/baking
+  bread:      0.5,  // common breakfast staple
   garlic:     0.5,  // essential cooking ingredient
   tomato:     0.5,  // common vegetable
   kangkung:   0.4,  // popular local vegetable
   longbeans:  0.3,  // common vegetable
 };
+
+// ── Sanity check: every basket item must have a weight ──────────
+for (const item of BASKET_ITEMS) {
+  if (!(item in BASKET_WEIGHTS)) {
+    throw new Error(`BASKET_WEIGHTS missing weight for basket item "${item}"`);
+  }
+}
+for (const item of Object.keys(BASKET_WEIGHTS)) {
+  if (!BASKET_ITEMS.has(item)) {
+    throw new Error(`BASKET_WEIGHTS has weight for "${item}" which is not in BASKET_ITEMS`);
+  }
+}
 
 // Rolling window: look back up to N days for each item.
 // 14 days accommodates items surveyed weekly (eggs, milk, cooking oil).

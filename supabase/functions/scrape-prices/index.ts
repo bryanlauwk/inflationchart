@@ -85,37 +85,36 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fallback: Generate prices based on last known values with ±2% variance
+    // NOTE: Synthetic fallback data generation has been removed.
+    // Previously this generated random ±2% variance prices from last known values,
+    // which contaminated the database with fabricated data indistinguishable from
+    // real observations. If scraping fails, we now simply skip — real data will be
+    // backfilled by the sync-dosm function when the monthly CSV becomes available.
     if (results.length < Object.keys(ITEMS).length) {
-      console.log("Using fallback: generating from last known prices");
-
-      const { data: lastPrices } = await supabase
-        .from("food_prices")
-        .select("item, price_rm")
-        .neq("item", "basket")
-        .order("date", { ascending: false })
-        .limit(Object.keys(ITEMS).length);
-
-      if (lastPrices && lastPrices.length > 0) {
-        const existingItems = new Set(results.map((r) => r.item));
-
-        for (const last of lastPrices) {
-          if (!existingItems.has(last.item)) {
-            const variance = (Math.random() - 0.5) * 0.04;
-            const newPrice = Math.round(last.price_rm * (1 + variance) * 100) / 100;
-            results.push({ date: today, item: last.item, price_rm: newPrice });
-          }
-        }
-      }
+      console.log(`Only scraped ${results.length}/${Object.keys(ITEMS).length} items. Skipping synthetic fallback to preserve data integrity.`);
     }
 
-    // Calculate basket total
-    const basketTotal = results.reduce((sum, r) => sum + r.price_rm, 0);
-    if (basketTotal > 0) {
+    // Calculate weighted basket (must match sync-dosm weights)
+    const BASKET_WEIGHTS: Record<string, number> = {
+      chicken: 2.0, rice: 1.5, eggs: 1.2, cookingoil: 1.0,
+      onion: 0.8, sugar: 0.7, milk: 0.6,
+      kangkung: 0.5, tomato: 0.5, longbeans: 0.4,
+    };
+
+    let weightedSum = 0;
+    let hasBasketItems = false;
+    for (const r of results) {
+      const weight = BASKET_WEIGHTS[r.item] ?? 0;
+      if (weight > 0) {
+        weightedSum += r.price_rm * weight;
+        hasBasketItems = true;
+      }
+    }
+    if (hasBasketItems) {
       results.push({
         date: today,
         item: "basket",
-        price_rm: Math.round(basketTotal * 100) / 100,
+        price_rm: Math.round(weightedSum * 100) / 100,
       });
     }
 
