@@ -17,6 +17,14 @@ const translations = {
   "item.milk": { zh: "牛奶", en: "Milk" },
   "item.sugar": { zh: "白糖", en: "Sugar" },
   "item.cookingoil": { zh: "食用油", en: "Cooking Oil" },
+  "item.flour": { zh: "面粉", en: "Flour" },
+  "item.bread": { zh: "面包", en: "Bread" },
+  "item.santan": { zh: "椰浆", en: "Coconut Milk" },
+
+  // Items — Protein & Seafood
+  "item.fish": { zh: "甘望鱼", en: "Mackerel" },
+  "item.beef": { zh: "牛肉", en: "Beef" },
+  "item.prawns": { zh: "虾", en: "Prawns" },
 
   // Items — Vegetables
   "item.tomato": { zh: "番茄", en: "Tomato" },
@@ -26,6 +34,8 @@ const translations = {
   "item.chili": { zh: "辣椒", en: "Chili" },
   "item.cabbage": { zh: "包菜", en: "Cabbage" },
   "item.spinach": { zh: "菠菜", en: "Spinach" },
+  "item.garlic": { zh: "蒜头", en: "Garlic" },
+  "item.potato": { zh: "马铃薯", en: "Potato" },
 
   // Items — Fruits
   "item.papaya": { zh: "木瓜", en: "Papaya" },
@@ -35,6 +45,7 @@ const translations = {
 
   // Category labels
   "category.staples": { zh: "主食", en: "Staples" },
+  "category.protein": { zh: "蛋白质 & 海鲜", en: "Protein & Seafood" },
   "category.vegetables": { zh: "蔬菜", en: "Vegetables" },
   "category.fruits": { zh: "水果", en: "Fruits" },
 
@@ -147,8 +158,8 @@ const translations = {
 
   // Basket methodology badge
   "basket.badge": {
-    zh: "加权菜篮 · 14天滚动窗口 · 9品项全覆盖",
-    en: "Weighted basket · 14-day rolling · All 9 items",
+    zh: "加权菜篮 · 14天滚动窗口 · 13品项全覆盖",
+    en: "Weighted basket · 14-day rolling · All 13 items",
   },
 
   // Purchasing power analysis

@@ -13,9 +13,17 @@ export type FoodItem =
   | "onion"
   | "sugar"
   | "cookingoil"
+  | "flour"
+  | "bread"
+  | "santan"
+  | "fish"
+  | "beef"
+  | "prawns"
   | "chili"
   | "cabbage"
   | "spinach"
+  | "garlic"
+  | "potato"
   | "papaya"
   | "banana"
   | "watermelon"
@@ -41,24 +49,27 @@ export interface PriceStats {
 
 // Category groupings for UI
 export const ITEM_CATEGORIES = {
-  staples: ["basket", "chicken", "eggs", "rice", "milk", "sugar", "cookingoil"] as FoodItem[],
-  vegetables: ["tomato", "longbeans", "kangkung", "onion", "chili", "cabbage", "spinach"] as FoodItem[],
+  staples: ["basket", "chicken", "eggs", "rice", "milk", "sugar", "cookingoil", "flour", "bread", "santan"] as FoodItem[],
+  protein: ["fish", "beef", "prawns"] as FoodItem[],
+  vegetables: ["tomato", "longbeans", "kangkung", "onion", "chili", "cabbage", "spinach", "garlic", "potato"] as FoodItem[],
   fruits: ["papaya", "banana", "watermelon", "lime"] as FoodItem[],
 };
 
 export const ALL_ITEMS: FoodItem[] = [
   ...ITEM_CATEGORIES.staples,
+  ...ITEM_CATEGORIES.protein,
   ...ITEM_CATEGORIES.vegetables,
   ...ITEM_CATEGORIES.fruits,
 ];
 
-// The 10 core items that contribute to the basket composite
+// The 13 core items that contribute to the basket composite
 export const BASKET_ITEMS_LIST = [
-  "chicken", "eggs", "rice", "sugar",
-  "cookingoil", "tomato", "longbeans", "kangkung", "onion",
+  "chicken", "eggs", "rice", "sugar", "cookingoil",
+  "flour", "bread", "fish", "garlic",
+  "tomato", "longbeans", "kangkung", "onion",
 ] as const;
 
-export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 9
+export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 13
 
 function getStartDate(period: TimePeriod): string {
   const now = new Date();
