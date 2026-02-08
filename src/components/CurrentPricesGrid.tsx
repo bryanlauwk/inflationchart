@@ -11,7 +11,7 @@ interface CurrentPricesGridProps {
 
 type CategoryKey = keyof typeof ITEM_CATEGORIES;
 
-const CATEGORY_ORDER: CategoryKey[] = ["staples", "vegetables", "fruits"];
+const CATEGORY_ORDER: CategoryKey[] = ["staples", "protein", "vegetables", "fruits"];
 
 export function CurrentPricesGrid({ onItemSelect, activeItem }: CurrentPricesGridProps) {
   const { lang } = useLanguage();

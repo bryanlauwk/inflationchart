@@ -55,36 +55,18 @@ export function PriceHeader({
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-50 border-border bg-card">
-              <SelectGroup>
-                <SelectLabel className="text-xs text-muted-foreground">
-                  {t("category.staples", lang)}
-                </SelectLabel>
-                {ITEM_CATEGORIES.staples.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {t(`item.${i}` as TranslationKey, lang)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-              <SelectGroup>
-                <SelectLabel className="text-xs text-muted-foreground">
-                  {t("category.vegetables", lang)}
-                </SelectLabel>
-                {ITEM_CATEGORIES.vegetables.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {t(`item.${i}` as TranslationKey, lang)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-              <SelectGroup>
-                <SelectLabel className="text-xs text-muted-foreground">
-                  {t("category.fruits", lang)}
-                </SelectLabel>
-                {ITEM_CATEGORIES.fruits.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {t(`item.${i}` as TranslationKey, lang)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
+              {(Object.keys(ITEM_CATEGORIES) as Array<keyof typeof ITEM_CATEGORIES>).map((cat) => (
+                <SelectGroup key={cat}>
+                  <SelectLabel className="text-xs text-muted-foreground">
+                    {t(`category.${cat}` as TranslationKey, lang)}
+                  </SelectLabel>
+                  {ITEM_CATEGORIES[cat].map((i) => (
+                    <SelectItem key={i} value={i}>
+                      {t(`item.${i}` as TranslationKey, lang)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
             </SelectContent>
           </Select>
 

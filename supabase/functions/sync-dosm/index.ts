@@ -16,13 +16,14 @@ const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
   rice:       { codes: [904, 992, 1445, 1581, 1582], divisor: 10 },
   milk:       { codes: [224, 225, 1852],  divisor: 1 },
   sugar:      { codes: [1589, 1590], divisor: 1 },
-  // Cooking oil: ONLY code 1091 (standard 1kg bottle, ~RM7).
-  // Excluded codes:
-  //   918  — subsidized 1kg packet (~RM2.50), price-controlled, not market-representative
-  //   1092 — 2kg bottle, different unit size
-  //   1093 — 5kg bottle, different unit size
-  // Mixing these caused RM2.50–RM7.00 volatility artifacts in the basket.
   cookingoil: { codes: [1091], divisor: 1 },
+  flour:      { codes: [917, 1593], divisor: 1 },   // 1kg wheat flour
+  bread:      { codes: [272, 1494, 1586], divisor: 1 }, // 400g sandwich bread
+  santan:     { codes: [103], divisor: 1 },          // fresh coconut milk 1kg
+  // Protein & Seafood
+  fish:       { codes: [55, 1476], divisor: 1 },     // ikan kembung 1kg
+  beef:       { codes: [1370, 1371, 1372, 1373], divisor: 1 }, // import beef 1kg
+  prawns:     { codes: [849, 1391, 1555], divisor: 1 }, // white prawns 1kg
   // Vegetables
   tomato:     { codes: [114],  divisor: 1 },
   longbeans:  { codes: [98],   divisor: 1 },
@@ -31,6 +32,8 @@ const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
   chili:      { codes: [92, 93, 94], divisor: 1 },
   cabbage:    { codes: [104, 105, 1396, 1458], divisor: 1 },
   spinach:    { codes: [1556, 1557], divisor: 1 },
+  garlic:     { codes: [1564], divisor: 1 },         // Chinese imported garlic 1kg
+  potato:     { codes: [160, 861, 1131], divisor: 1 }, // potatoes 1kg
   // Fruits
   papaya:     { codes: [16], divisor: 1 },
   banana:     { codes: [18], divisor: 1 },
@@ -44,31 +47,42 @@ const MAX_PRICE: Record<string, number> = {
   rice: 10, milk: 20, kangkung: 15, onion: 8,
   sugar: 10, cookingoil: 15, chili: 30, cabbage: 15,
   spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20,
+  fish: 30, beef: 60, flour: 8, bread: 8,
+  prawns: 50, santan: 20, garlic: 25, potato: 15,
 };
 
 // Per-item price floor (RM) — rejects subsidized/misclassified entries
 const MIN_PRICE: Record<string, number> = {
   cookingoil: 5.0, // standard 1kg bottle is RM7-9; filters out RM2.50 subsidized packets
+  fish: 5.0,       // ikan kembung is RM10-20/kg
+  beef: 20.0,      // import beef is RM30-50/kg
+  prawns: 10.0,    // white prawns are RM15-40/kg
+  garlic: 3.0,     // garlic is RM8-15/kg
+  potato: 2.0,     // potato is RM4-8/kg
 };
 
 // ── Basket configuration ──────────────────────────────────────────
 // Core basket items — only these contribute to the "basket" composite.
-// Milk removed: only ~2 data points/month, causing chronic rolling window failures.
+// 13 items covering ~70% of typical Malaysian household food spending.
 const BASKET_ITEMS = new Set([
-  "chicken", "eggs", "rice", "sugar",
-  "cookingoil", "tomato", "longbeans", "kangkung", "onion",
+  "chicken", "eggs", "rice", "sugar", "cookingoil",
+  "flour", "bread", "fish", "garlic",
+  "tomato", "longbeans", "kangkung", "onion",
 ]);
 
 // Consumption-based weights reflecting Malaysian household spending.
 // Higher weight = larger share of typical household food expenditure.
-// Total weight = 8.4 (milk removed due to sparse survey data)
 const BASKET_WEIGHTS: Record<string, number> = {
   chicken:    2.0,  // major protein, consumed daily
   rice:       1.5,  // primary staple
+  fish:       1.2,  // #2 protein source in Malaysia
   eggs:       1.2,  // essential protein
   cookingoil: 1.0,  // daily cooking essential
   onion:      0.8,  // essential cooking ingredient
+  bread:      0.7,  // daily consumption for many households
   sugar:      0.7,  // common staple
+  flour:      0.6,  // widely used for cooking/baking
+  garlic:     0.5,  // essential cooking ingredient
   tomato:     0.5,  // common vegetable
   kangkung:   0.4,  // popular local vegetable
   longbeans:  0.3,  // common vegetable
