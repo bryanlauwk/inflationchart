@@ -40,8 +40,8 @@ const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
 
 // Per-item price ceiling (RM) — rejects outlier data points
 const MAX_PRICE: Record<string, number> = {
-  chicken: 25, eggs: 8, tomato: 20, longbeans: 20,
-  rice: 10, milk: 20, kangkung: 15, onion: 15,
+  chicken: 15, eggs: 5, tomato: 20, longbeans: 20,
+  rice: 10, milk: 20, kangkung: 15, onion: 8,
   sugar: 10, cookingoil: 15, chili: 30, cabbage: 15,
   spinach: 15, papaya: 15, banana: 20, watermelon: 10, lime: 20,
 };
@@ -53,14 +53,15 @@ const MIN_PRICE: Record<string, number> = {
 
 // ── Basket configuration ──────────────────────────────────────────
 // Core basket items — only these contribute to the "basket" composite.
+// Milk removed: only ~2 data points/month, causing chronic rolling window failures.
 const BASKET_ITEMS = new Set([
-  "chicken", "eggs", "rice", "milk", "sugar",
+  "chicken", "eggs", "rice", "sugar",
   "cookingoil", "tomato", "longbeans", "kangkung", "onion",
 ]);
 
 // Consumption-based weights reflecting Malaysian household spending.
 // Higher weight = larger share of typical household food expenditure.
-// Total weight = 9.0
+// Total weight = 8.4 (milk removed due to sparse survey data)
 const BASKET_WEIGHTS: Record<string, number> = {
   chicken:    2.0,  // major protein, consumed daily
   rice:       1.5,  // primary staple
@@ -68,7 +69,6 @@ const BASKET_WEIGHTS: Record<string, number> = {
   cookingoil: 1.0,  // daily cooking essential
   onion:      0.8,  // essential cooking ingredient
   sugar:      0.7,  // common staple
-  milk:       0.6,  // supplementary
   tomato:     0.5,  // common vegetable
   kangkung:   0.4,  // popular local vegetable
   longbeans:  0.3,  // common vegetable
@@ -163,7 +163,7 @@ async function processMonthCSV(
   console.log(`${month}: matched ${matched} records, rejected ${rejected} outliers`);
 
   // ── Step 1: Compute individual item daily averages ──
-  const results: Array<{ date: string; item: string; price_rm: number }> = [];
+  const rawResults: Array<{ date: string; item: string; price_rm: number }> = [];
 
   // Per-item-per-date lookup (for basket rolling window)
   const itemPriceByDate: Record<string, Record<string, number>> = {};
@@ -171,13 +171,63 @@ async function processMonthCSV(
   for (const [key, { sum, count }] of Object.entries(acc)) {
     const [date, item] = key.split("|");
     const avgPrice = Math.round((sum / count) * 100) / 100;
-    results.push({ date, item, price_rm: avgPrice });
+    rawResults.push({ date, item, price_rm: avgPrice });
 
     // Track basket-eligible items for rolling window
     if (BASKET_ITEMS.has(item)) {
       if (!itemPriceByDate[date]) itemPriceByDate[date] = {};
       itemPriceByDate[date][item] = avgPrice;
     }
+  }
+
+  // ── Step 1b: Day-over-day spike detection ──
+  // Reject data points where price jumps >60% from previous day for the same item.
+  // This catches single-day spikes caused by data errors or outlier premises.
+  const SPIKE_THRESHOLD = 0.60; // 60%
+  const byItem: Record<string, Array<{ date: string; price: number; idx: number }>> = {};
+  for (let i = 0; i < rawResults.length; i++) {
+    const r = rawResults[i];
+    if (!byItem[r.item]) byItem[r.item] = [];
+    byItem[r.item].push({ date: r.date, price: r.price_rm, idx: i });
+  }
+
+  const spikeRejected = new Set<number>();
+  for (const [item, entries] of Object.entries(byItem)) {
+    entries.sort((a, b) => a.date.localeCompare(b.date));
+    for (let i = 1; i < entries.length; i++) {
+      const prev = entries[i - 1].price;
+      const curr = entries[i].price;
+      if (prev > 0) {
+        const changePct = Math.abs(curr - prev) / prev;
+        if (changePct > SPIKE_THRESHOLD) {
+          // Check if the next day also reverts (confirms spike, not step-change)
+          const next = entries[i + 1];
+          if (next) {
+            const revertPct = Math.abs(next.price - prev) / prev;
+            if (revertPct < SPIKE_THRESHOLD) {
+              // Current point is a spike — previous and next are similar
+              console.log(`Spike detected: ${item} on ${entries[i].date} (${prev} → ${curr} → ${next.price})`);
+              spikeRejected.add(entries[i].idx);
+              // Also remove from itemPriceByDate if it was a basket item
+              if (BASKET_ITEMS.has(item)) {
+                delete itemPriceByDate[entries[i].date]?.[item];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const results: Array<{ date: string; item: string; price_rm: number }> = [];
+  for (let i = 0; i < rawResults.length; i++) {
+    if (!spikeRejected.has(i)) {
+      results.push(rawResults[i]);
+    }
+  }
+
+  if (spikeRejected.size > 0) {
+    console.log(`${month}: rejected ${spikeRejected.size} day-over-day spikes`);
   }
 
   // ── Step 2: Load previous month's basket item prices from DB ──

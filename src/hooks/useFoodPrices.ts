@@ -29,6 +29,8 @@ export interface ChartDataPoint {
   nominal: number;
   cpi: number;
   real: number;
+  /** True when CPI for this month is unavailable and a fallback value was used */
+  cpiFallback?: boolean;
 }
 
 export interface PriceStats {
@@ -52,11 +54,11 @@ export const ALL_ITEMS: FoodItem[] = [
 
 // The 10 core items that contribute to the basket composite
 export const BASKET_ITEMS_LIST = [
-  "chicken", "eggs", "rice", "milk", "sugar",
+  "chicken", "eggs", "rice", "sugar",
   "cookingoil", "tomato", "longbeans", "kangkung", "onion",
 ] as const;
 
-export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 10
+export const BASKET_SIZE = BASKET_ITEMS_LIST.length; // 9
 
 function getStartDate(period: TimePeriod): string {
   const now = new Date();
@@ -127,10 +129,12 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
       // Build CPI lookup by month and track the latest known CPI
       const cpiByMonth: Record<string, number> = {};
       let latestCpi = 100;
+      let latestCpiMonth = "";
       for (const c of cpiData) {
         const monthKey = c.date.substring(0, 7);
         cpiByMonth[monthKey] = c.value;
         latestCpi = c.value; // ascending order, so last = latest
+        latestCpiMonth = monthKey;
       }
 
       // Sample data to avoid too many points (max ~365 points)
@@ -140,7 +144,8 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
       for (let i = 0; i < prices.length; i += sampleRate) {
         const p = prices[i];
         const monthKey = p.date.substring(0, 7);
-        const cpi = cpiByMonth[monthKey] || latestCpi;
+        const hasCpi = !!cpiByMonth[monthKey];
+        const cpi = hasCpi ? cpiByMonth[monthKey] : latestCpi;
         const real = Math.round((p.price_rm / cpi) * 100 * 100) / 100;
 
         chartData.push({
@@ -152,6 +157,7 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
           nominal: p.price_rm,
           cpi,
           real,
+          cpiFallback: !hasCpi,
         });
       }
 
@@ -161,7 +167,8 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
         const lastInChart = chartData[chartData.length - 1];
         if (!lastInChart || lastInChart.dateRaw !== last.date) {
           const monthKey = last.date.substring(0, 7);
-          const cpi = cpiByMonth[monthKey] || latestCpi;
+          const hasCpi = !!cpiByMonth[monthKey];
+          const cpi = hasCpi ? cpiByMonth[monthKey] : latestCpi;
           chartData.push({
             dateRaw: last.date,
             date: new Date(last.date).toLocaleDateString("en", {
@@ -171,6 +178,7 @@ export function useFoodPrices(item: FoodItem, period: TimePeriod) {
             nominal: last.price_rm,
             cpi,
             real: Math.round((last.price_rm / cpi) * 100 * 100) / 100,
+            cpiFallback: !hasCpi,
           });
         }
       }
