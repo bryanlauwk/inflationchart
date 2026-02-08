@@ -20,6 +20,24 @@ export function usePurchasingPowerAnalysis() {
   return useQuery({
     queryKey: ["purchasing-power-analysis"],
     queryFn: async (): Promise<PurchasingPowerData> => {
+      // Determine the latest available date dynamically
+      const { data: latestRow } = await supabase
+        .from("food_prices")
+        .select("date")
+        .neq("item", "basket")
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!latestRow) throw new Error("No food price data available");
+
+      // Use the last 3 months of data for the "latest" period
+      const latestDate = new Date(latestRow.date);
+      const threeMonthsAgo = new Date(latestDate);
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
+      threeMonthsAgo.setDate(1);
+      const lateCutoff = threeMonthsAgo.toISOString().split("T")[0];
+
       // Fetch early period (Q1 2022) and latest period averages + CPI
       const [earlyPrices, latePrices, earlyCpi, lateCpi] = await Promise.all([
         supabase
@@ -31,7 +49,7 @@ export function usePurchasingPowerAnalysis() {
         supabase
           .from("food_prices")
           .select("item, price_rm")
-          .gte("date", "2025-11-01")
+          .gte("date", lateCutoff)
           .neq("item", "basket"),
         supabase
           .from("indicators")
@@ -43,7 +61,7 @@ export function usePurchasingPowerAnalysis() {
           .from("indicators")
           .select("value")
           .eq("type", "CPI")
-          .gte("date", "2025-11-01"),
+          .gte("date", lateCutoff),
       ]);
 
       if (earlyPrices.error) throw earlyPrices.error;
