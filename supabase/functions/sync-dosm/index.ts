@@ -66,7 +66,7 @@ const MIN_PRICE: Record<string, number> = {
 // 13 items covering ~70% of typical Malaysian household food spending.
 const BASKET_ITEMS = new Set([
   "chicken", "eggs", "rice", "sugar", "cookingoil",
-  "flour", "bread", "fish", "garlic",
+  "flour", "fish", "garlic",
   "tomato", "longbeans", "kangkung", "onion",
 ]);
 
@@ -79,7 +79,6 @@ const BASKET_WEIGHTS: Record<string, number> = {
   eggs:       1.2,  // essential protein
   cookingoil: 1.0,  // daily cooking essential
   onion:      0.8,  // essential cooking ingredient
-  bread:      0.7,  // daily consumption for many households
   sugar:      0.7,  // common staple
   flour:      0.6,  // widely used for cooking/baking
   garlic:     0.5,  // essential cooking ingredient
