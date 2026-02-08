@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   ReferenceLine,
+  ReferenceArea,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ChartDataPoint } from "@/hooks/useFoodPrices";
@@ -36,6 +37,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       })
     : null;
 
+  const isFallback = dataPoint?.cpiFallback;
+
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3 shadow-xl">
       <p className="mb-1.5 text-xs font-medium text-muted-foreground">
@@ -58,6 +61,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           </span>
         </p>
       ))}
+      {isFallback && (
+        <p className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-400/80">
+          <span>⚠</span>
+          <span>CPI data estimated (not yet published)</span>
+        </p>
+      )}
     </div>
   );
 };
@@ -105,7 +114,14 @@ export function PriceChart({ data, loading }: PriceChartProps) {
 
   const chartHeight = isMobile ? 350 : 450;
 
+  // Detect if any data points use CPI fallback
+  const hasFallback = useMemo(() => data.some((d) => d.cpiFallback), [data]);
 
+  // Find the first fallback point's x-axis label for the reference area
+  const fallbackStartLabel = useMemo(() => {
+    const first = data.find((d) => d.cpiFallback);
+    return first?.date ?? null;
+  }, [data]);
   // Compute festival markers within chart date range
   const festivals = useMemo(() => {
     if (!data.length) return [];
@@ -123,16 +139,35 @@ export function PriceChart({ data, loading }: PriceChartProps) {
   }, [data, lang]);
 
   // Shared reference lines for both chart modes
-  const referenceLines = festivals.map((f, i) => (
-    <ReferenceLine
-      key={`fest-${i}`}
-      x={f.x}
-      stroke="hsl(var(--muted-foreground))"
-      strokeDasharray="4 4"
-      strokeOpacity={0.5}
-      label={<FestivalLabel label={f.label} emoji={f.emoji} />}
-    />
-  ));
+  const referenceLines = useMemo(() => {
+    const lines = festivals.map((f, i) => (
+      <ReferenceLine
+        key={`fest-${i}`}
+        x={f.x}
+        stroke="hsl(var(--muted-foreground))"
+        strokeDasharray="4 4"
+        strokeOpacity={0.5}
+        label={<FestivalLabel label={f.label} emoji={f.emoji} />}
+      />
+    ));
+
+    // Add CPI fallback shaded zone
+    if (hasFallback && fallbackStartLabel) {
+      const lastLabel = data[data.length - 1]?.date;
+      lines.push(
+        <ReferenceArea
+          key="cpi-fallback-zone"
+          x1={fallbackStartLabel}
+          x2={lastLabel}
+          fill="hsl(45 100% 50%)"
+          fillOpacity={0.06}
+          strokeOpacity={0}
+        />
+      );
+    }
+
+    return lines;
+  }, [festivals, hasFallback, fallbackStartLabel, data]);
 
   if (loading) {
     return (
@@ -257,6 +292,18 @@ export function PriceChart({ data, loading }: PriceChartProps) {
             </AreaChart>
           )}
         </ResponsiveContainer>
+
+        {/* CPI fallback banner */}
+        {hasFallback && (
+          <div className="mt-3 flex items-center gap-2 rounded border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+            <span className="text-amber-400">⚠</span>
+            <span>
+              {lang === "zh"
+                ? "部分日期的 CPI 数据尚未发布，使用最近已知值估算。实际价格仅供参考。"
+                : "CPI data not yet published for some dates — using latest known value. Real prices are approximate."}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Expand/collapse toggle */}
