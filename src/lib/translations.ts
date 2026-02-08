@@ -147,8 +147,8 @@ const translations = {
 
   // Basket methodology badge
   "basket.badge": {
-    zh: "加权菜篮 · 14天滚动窗口 · 10品项全覆盖",
-    en: "Weighted basket · 14-day rolling · All 10 items",
+    zh: "加权菜篮 · 14天滚动窗口 · 9品项全覆盖",
+    en: "Weighted basket · 14-day rolling · All 9 items",
   },
 
   // Purchasing power analysis
