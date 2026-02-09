@@ -59,6 +59,84 @@ export type Database = {
         }
         Relationships: []
       }
+      quarantined_prices: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          item: string
+          price_rm: number
+          reason: string
+          resolved: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          item: string
+          price_rm: number
+          reason: string
+          resolved?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          item?: string
+          price_rm?: number
+          reason?: string
+          resolved?: boolean | null
+        }
+        Relationships: []
+      }
+      sanity_check_results: {
+        Row: {
+          ai_audit: string | null
+          citations: Json | null
+          cpi_date: string | null
+          cpi_value: number | null
+          created_at: string | null
+          data_date: string
+          id: string
+          internal_error_count: number | null
+          internal_flags: Json | null
+          internal_warn_count: number | null
+          item_count: number
+          passed: boolean | null
+          quarantined_items: Json | null
+        }
+        Insert: {
+          ai_audit?: string | null
+          citations?: Json | null
+          cpi_date?: string | null
+          cpi_value?: number | null
+          created_at?: string | null
+          data_date: string
+          id?: string
+          internal_error_count?: number | null
+          internal_flags?: Json | null
+          internal_warn_count?: number | null
+          item_count?: number
+          passed?: boolean | null
+          quarantined_items?: Json | null
+        }
+        Update: {
+          ai_audit?: string | null
+          citations?: Json | null
+          cpi_date?: string | null
+          cpi_value?: number | null
+          created_at?: string | null
+          data_date?: string
+          id?: string
+          internal_error_count?: number | null
+          internal_flags?: Json | null
+          internal_warn_count?: number | null
+          item_count?: number
+          passed?: boolean | null
+          quarantined_items?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

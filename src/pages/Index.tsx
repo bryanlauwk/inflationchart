@@ -4,7 +4,6 @@ import { PriceChart } from "@/components/PriceChart";
 import { HeroStat } from "@/components/HeroStat";
 import { PriceSidebar } from "@/components/PriceSidebar";
 import { PurchasingPowerSummary } from "@/components/PurchasingPowerSummary";
-import { DataSanityCheck } from "@/components/DataSanityCheck";
 import { HeroIllustration, SeigaihaWaves, MistBand, FooterMotifs, WashiTexture } from "@/components/BackgroundIllustration";
 import { useFoodPrices } from "@/hooks/useFoodPrices";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -68,9 +67,6 @@ const Index = () => {
 
       <footer className="border-t border-border/40 px-4 py-12 text-center text-xs text-muted-foreground/70">
         <FooterMotifs className="mb-6" />
-        <div className="mb-4 flex justify-center">
-          <DataSanityCheck />
-        </div>
         <p className="tracking-wide">
           {t("footer.builtBy", lang)}{" "}
           <a
