@@ -7,8 +7,6 @@ const corsHeaders = {
 };
 
 // ── Known plausible price ranges for Malaysian food (RM/kg) ──────
-// Based on typical retail prices across Malaysian wet markets & supermarkets.
-// Used for fast internal checks before calling Perplexity.
 const PLAUSIBLE_RANGES: Record<string, { min: number; max: number; unit: string }> = {
   chicken:    { min: 7,  max: 14, unit: "kg" },
   eggs:       { min: 0.3, max: 0.6, unit: "egg (grade A)" },
@@ -53,45 +51,39 @@ function runInternalChecks(
 ): InternalFlag[] {
   const flags: InternalFlag[] = [];
 
-  // 1. Range check against plausible bounds
+  // 1. Range check
   for (const p of latestPrices) {
     const range = PLAUSIBLE_RANGES[p.item];
     if (!range) continue;
     if (p.price_rm < range.min * 0.8 || p.price_rm > range.max * 1.2) {
       flags.push({
-        item: p.item,
-        type: "out_of_range",
-        severity: "error",
+        item: p.item, type: "out_of_range", severity: "error",
         message: `RM${p.price_rm} is outside plausible range (RM${range.min}–RM${range.max}/${range.unit})`,
       });
     } else if (p.price_rm < range.min || p.price_rm > range.max) {
       flags.push({
-        item: p.item,
-        type: "out_of_range",
-        severity: "warn",
+        item: p.item, type: "out_of_range", severity: "warn",
         message: `RM${p.price_rm} is near boundary of expected range (RM${range.min}–RM${range.max}/${range.unit})`,
       });
     }
   }
 
-  // 2. Data staleness — check how old the latest data is
+  // 2. Data staleness
   const daysSinceLatest = Math.floor(
     (Date.now() - new Date(latestDate + "T12:00:00Z").getTime()) / 86400000
   );
   if (daysSinceLatest > 7) {
     flags.push({
-      item: "_dataset",
-      type: "stale_data",
+      item: "_dataset", type: "stale_data",
       severity: daysSinceLatest > 30 ? "error" : "warn",
       message: `Latest data is ${daysSinceLatest} days old (${latestDate}). Expect daily updates.`,
     });
   }
 
-  // 3. Month-over-month volatility check
-  // Build per-item monthly averages from historical data
+  // 3. Month-over-month volatility
   const monthlyAvg: Record<string, Record<string, { sum: number; count: number }>> = {};
   for (const row of historicalPrices) {
-    const month = row.date.slice(0, 7); // YYYY-MM
+    const month = row.date.slice(0, 7);
     if (!monthlyAvg[row.item]) monthlyAvg[row.item] = {};
     if (!monthlyAvg[row.item][month]) monthlyAvg[row.item][month] = { sum: 0, count: 0 };
     monthlyAvg[row.item][month].sum += row.price_rm;
@@ -101,54 +93,40 @@ function runInternalChecks(
   for (const p of latestPrices) {
     const months = Object.keys(monthlyAvg[p.item] || {}).sort();
     if (months.length < 2) continue;
-
-    // Compare latest price to the most recent full month's average
     const prevMonth = months[months.length - 1];
     const prevAvg = monthlyAvg[p.item][prevMonth];
     if (!prevAvg) continue;
-
     const prevAvgPrice = prevAvg.sum / prevAvg.count;
     const changePct = ((p.price_rm - prevAvgPrice) / prevAvgPrice) * 100;
 
     if (Math.abs(changePct) > 30) {
       flags.push({
-        item: p.item,
-        type: "large_mom_change",
-        severity: "error",
+        item: p.item, type: "large_mom_change", severity: "error",
         message: `${changePct > 0 ? "+" : ""}${changePct.toFixed(1)}% vs last month avg (RM${prevAvgPrice.toFixed(2)} → RM${p.price_rm})`,
       });
     } else if (Math.abs(changePct) > 15) {
       flags.push({
-        item: p.item,
-        type: "large_mom_change",
-        severity: "warn",
+        item: p.item, type: "large_mom_change", severity: "warn",
         message: `${changePct > 0 ? "+" : ""}${changePct.toFixed(1)}% vs last month avg (RM${prevAvgPrice.toFixed(2)} → RM${p.price_rm})`,
       });
     }
   }
 
-  // 4. Coverage check — items we expect but are missing
+  // 4. Coverage check
   const expectedItems = Object.keys(PLAUSIBLE_RANGES);
   const presentItems = new Set(latestPrices.map((p) => p.item));
   for (const item of expectedItems) {
     if (!presentItems.has(item)) {
-      flags.push({
-        item,
-        type: "missing_data",
-        severity: "warn",
-        message: `No price data on ${latestDate}`,
-      });
+      flags.push({ item, type: "missing_data", severity: "warn", message: `No price data on ${latestDate}` });
     }
   }
 
-  // 5. Trend break detection — 3-month rolling average vs latest
+  // 5. Trend break — 3-month rolling average
   for (const p of latestPrices) {
     const months = Object.keys(monthlyAvg[p.item] || {}).sort();
     if (months.length < 3) continue;
-
     const last3 = months.slice(-3);
-    let rollingSum = 0;
-    let rollingCount = 0;
+    let rollingSum = 0, rollingCount = 0;
     for (const m of last3) {
       const entry = monthlyAvg[p.item][m];
       rollingSum += entry.sum / entry.count;
@@ -156,12 +134,9 @@ function runInternalChecks(
     }
     const rollingAvg = rollingSum / rollingCount;
     const deviation = ((p.price_rm - rollingAvg) / rollingAvg) * 100;
-
     if (Math.abs(deviation) > 25) {
       flags.push({
-        item: p.item,
-        type: "trend_break",
-        severity: "warn",
+        item: p.item, type: "trend_break", severity: "warn",
         message: `${deviation > 0 ? "+" : ""}${deviation.toFixed(1)}% deviation from 3-month rolling average (RM${rollingAvg.toFixed(2)})`,
       });
     }
@@ -170,17 +145,12 @@ function runInternalChecks(
   return flags;
 }
 
-// ── Format internal checks as readable text ──────────────────────
-
 function formatInternalReport(flags: InternalFlag[]): string {
   if (flags.length === 0) return "All internal checks passed — no anomalies detected.";
-
   const errors = flags.filter((f) => f.severity === "error");
   const warns = flags.filter((f) => f.severity === "warn");
   const infos = flags.filter((f) => f.severity === "info");
-
   let report = `**Internal Checks: ${errors.length} errors, ${warns.length} warnings, ${infos.length} info**\n\n`;
-
   if (errors.length > 0) {
     report += "🔴 **Errors:**\n";
     for (const f of errors) report += `- **${f.item}** (${f.type}): ${f.message}\n`;
@@ -196,11 +166,12 @@ function formatInternalReport(flags: InternalFlag[]): string {
     for (const f of infos) report += `- **${f.item}** (${f.type}): ${f.message}\n`;
     report += "\n";
   }
-
   return report;
 }
 
-// ── Main ─────────────────────────────────────────────────────────
+// ── Main — standalone ad-hoc sanity check ────────────────────────
+// This function can still be called independently for debugging.
+// It now also persists results to the sanity_check_results table.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -220,7 +191,6 @@ Deno.serve(async (req) => {
 
     // ── Fetch data ───────────────────────────────────────────────
 
-    // Latest date
     const { data: latestDateRow } = await supabase
       .from("food_prices")
       .select("date")
@@ -235,7 +205,6 @@ Deno.serve(async (req) => {
 
     const latestDate = latestDateRow.date;
 
-    // Fetch latest prices + 3 months of history (for trend analysis)
     const threeMonthsAgo = new Date(latestDate + "T12:00:00Z");
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
     const historyStart = threeMonthsAgo.toISOString().split("T")[0];
@@ -278,14 +247,12 @@ Deno.serve(async (req) => {
 
     const internalFlags = runInternalChecks(latestPrices, historicalPrices, latestDate);
     const internalReport = formatInternalReport(internalFlags);
+    const errorCount = internalFlags.filter((f) => f.severity === "error").length;
+    const warnCount = internalFlags.filter((f) => f.severity === "warn").length;
 
     console.log(`Internal checks: ${internalFlags.length} flags`);
 
     // ── Layer 2: Perplexity cross-validation ─────────────────────
-    // Instead of asking for exact DOSM data, we ask Perplexity to:
-    //   a) Validate prices against general Malaysian market knowledge
-    //   b) Check for economic events that could explain anomalies
-    //   c) Compare relative pricing ratios (e.g. chicken vs beef)
 
     const pricesSummary = latestPrices
       .map((p) => {
@@ -294,22 +261,14 @@ Deno.serve(async (req) => {
       })
       .join("\n");
 
-    // Compute some relative ratios for cross-validation
     const priceMap: Record<string, number> = {};
     for (const p of latestPrices) priceMap[p.item] = p.price_rm;
 
     const ratios: string[] = [];
-    if (priceMap.beef && priceMap.chicken) {
-      ratios.push(`Beef-to-chicken ratio: ${(priceMap.beef / priceMap.chicken).toFixed(1)}x`);
-    }
-    if (priceMap.prawns && priceMap.fish) {
-      ratios.push(`Prawns-to-fish ratio: ${(priceMap.prawns / priceMap.fish).toFixed(1)}x`);
-    }
-    if (priceMap.garlic && priceMap.onion) {
-      ratios.push(`Garlic-to-onion ratio: ${(priceMap.garlic / priceMap.onion).toFixed(1)}x`);
-    }
+    if (priceMap.beef && priceMap.chicken) ratios.push(`Beef-to-chicken ratio: ${(priceMap.beef / priceMap.chicken).toFixed(1)}x`);
+    if (priceMap.prawns && priceMap.fish) ratios.push(`Prawns-to-fish ratio: ${(priceMap.prawns / priceMap.fish).toFixed(1)}x`);
+    if (priceMap.garlic && priceMap.onion) ratios.push(`Garlic-to-onion ratio: ${(priceMap.garlic / priceMap.onion).toFixed(1)}x`);
 
-    // Basket trend summary
     const basketTrend = basketHistory.length >= 2
       ? `Basket index trend (last ${basketHistory.length} days): RM${basketHistory[basketHistory.length - 1]?.price_rm} → RM${basketHistory[0]?.price_rm}`
       : "";
@@ -319,14 +278,10 @@ Deno.serve(async (req) => {
 You do NOT have access to DOSM's raw database. Instead, validate using these indirect methods:
 
 1. **General market knowledge**: Are these prices broadly consistent with what Malaysian consumers typically pay at wet markets and supermarkets in 2024-2026?
-
-2. **Relative pricing logic**: Do the price ratios between items make sense? (e.g., beef should be 3-5x chicken, imported garlic > local onion, prawns > fish)
-
-3. **Economic context**: Search for any recent Malaysian food price news — subsidy changes, supply disruptions, seasonal effects (monsoon, festive periods like Hari Raya/CNY) that could explain unusual prices.
-
-4. **Regional benchmarks**: Compare against food prices in neighboring ASEAN countries (adjusted for RM exchange rate) as a sanity check.
-
-5. **Government price controls**: Flag items under Malaysian government price controls (e.g., chicken ceiling price, cooking oil subsidies) and check if reported prices respect those controls.
+2. **Relative pricing logic**: Do the price ratios between items make sense?
+3. **Economic context**: Search for any recent Malaysian food price news — subsidy changes, supply disruptions, seasonal effects.
+4. **Regional benchmarks**: Compare against food prices in neighboring ASEAN countries.
+5. **Government price controls**: Flag items under Malaysian government price controls.
 
 Format your response as:
 
@@ -334,7 +289,6 @@ Format your response as:
 One paragraph: Is this data broadly trustworthy?
 
 ## Flagged Items
-Items where the price seems suspicious or noteworthy (table format if possible):
 | Item | Reported Price | Expected Range | Concern |
 
 ## Price Control Compliance
@@ -386,17 +340,36 @@ Please provide your independent assessment using web search for current Malaysia
     if (!perplexityResponse.ok) {
       const errorText = await perplexityResponse.text();
       console.error("Perplexity API error:", perplexityResponse.status, errorText);
-      throw new Error(
-        `Perplexity API error [${perplexityResponse.status}]: ${errorText}`
-      );
+      throw new Error(`Perplexity API error [${perplexityResponse.status}]: ${errorText}`);
     }
 
     const perplexityData = await perplexityResponse.json();
-    const aiAudit =
-      perplexityData.choices?.[0]?.message?.content ?? "No response from AI";
+    const aiAudit = perplexityData.choices?.[0]?.message?.content ?? "No response from AI";
     const citations = perplexityData.citations ?? [];
 
     console.log(`Perplexity audit complete. Citations: ${citations.length}`);
+
+    // ── Persist results to sanity_check_results table ─────────────
+    const passed = errorCount === 0;
+    const { error: auditInsertError } = await supabase.from("sanity_check_results").insert({
+      data_date: latestDate,
+      item_count: latestPrices.length,
+      internal_flags: internalFlags,
+      internal_error_count: errorCount,
+      internal_warn_count: warnCount,
+      quarantined_items: [],
+      ai_audit: aiAudit,
+      citations: citations,
+      cpi_value: latestCpi?.value ?? null,
+      cpi_date: latestCpi?.date ?? null,
+      passed,
+    });
+
+    if (auditInsertError) {
+      console.error("Failed to store sanity check results:", auditInsertError);
+    } else {
+      console.log(`Sanity check results stored: passed=${passed}`);
+    }
 
     // ── Combine results ──────────────────────────────────────────
 
@@ -406,8 +379,8 @@ Please provide your independent assessment using web search for current Malaysia
         internalChecks: {
           flags: internalFlags,
           summary: internalReport,
-          errorCount: internalFlags.filter((f) => f.severity === "error").length,
-          warnCount: internalFlags.filter((f) => f.severity === "warn").length,
+          errorCount,
+          warnCount,
         },
         aiAudit,
         citations,
@@ -415,6 +388,7 @@ Please provide your independent assessment using web search for current Malaysia
         itemCount: latestPrices.length,
         cpiValue: latestCpi?.value ?? null,
         cpiDate: latestCpi?.date ?? null,
+        passed,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
