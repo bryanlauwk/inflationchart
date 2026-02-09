@@ -11,7 +11,7 @@ export interface ItemAnalysis {
 }
 
 export interface PurchasingPowerData {
-  losers: ItemAnalysis[]; // real price went up most (purchasing power down)
+  losers: ItemAnalysis[]; // real price went up (purchasing power down)
   stable: ItemAnalysis[]; // real price stayed flat or went down (subsidized)
   cpiChange: number; // cumulative CPI change %
 }
@@ -118,12 +118,11 @@ export function usePurchasingPowerAnalysis() {
       // Sort by real change descending (biggest losers first)
       items.sort((a, b) => b.realChangePct - a.realChangePct);
 
-      // Top 6 losers (real price went up), stable = rest where real change <= 5%
-      const losers = items.filter((i) => i.realChangePct > 10).slice(0, 6);
+      // Split all items: losers = real price went up, stable = rest
+      const losers = items.filter((i) => i.realChangePct > 0);
       const stable = items
-        .filter((i) => i.realChangePct <= 5)
-        .sort((a, b) => a.realChangePct - b.realChangePct)
-        .slice(0, 5);
+        .filter((i) => i.realChangePct <= 0)
+        .sort((a, b) => a.realChangePct - b.realChangePct);
 
       return {
         losers,
