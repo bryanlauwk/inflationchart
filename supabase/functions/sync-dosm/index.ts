@@ -361,7 +361,7 @@ Please provide your independent assessment using web search for current Malaysia
 
 async function runSanityPipeline(
   allPrices: Array<{ date: string; item: string; price_rm: number }>,
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
 ): Promise<{
   cleanPrices: Array<{ date: string; item: string; price_rm: number }>;
   quarantinedItems: Array<{ date: string; item: string; price_rm: number; reason: string }>;
@@ -506,7 +506,7 @@ function subtractDays(dateStr: string, days: number): string {
 
 async function processMonthCSV(
   month: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<Array<{ date: string; item: string; price_rm: number }>> {
   const url = `https://storage.data.gov.my/pricecatcher/pricecatcher_${month}.csv`;
   console.log(`Fetching: ${url}`);
@@ -695,7 +695,7 @@ async function processMonthCSV(
 // ── CPI Sync ─────────────────────────────────────────────────────
 
 async function syncCPI(
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 ): Promise<number> {
   console.log("Fetching CPI with server-side filtering...");
 
@@ -754,7 +754,7 @@ async function syncCPI(
 
 async function upsertWithSanityCheck(
   prices: Array<{ date: string; item: string; price_rm: number }>,
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
 ): Promise<{
   upserted: number;
   quarantined: number;
