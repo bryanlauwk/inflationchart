@@ -14,6 +14,8 @@ export interface PurchasingPowerData {
   losers: ItemAnalysis[]; // real price went up (purchasing power down)
   stable: ItemAnalysis[]; // real price stayed flat or went down (subsidized)
   cpiChange: number; // cumulative CPI change %
+  itemCount: number; // total items analyzed
+  latestDate: string; // end date of comparison period
 }
 
 export function usePurchasingPowerAnalysis() {
@@ -45,12 +47,14 @@ export function usePurchasingPowerAnalysis() {
           .select("item, price_rm")
           .gte("date", "2022-01-01")
           .lte("date", "2022-03-31")
-          .neq("item", "basket"),
+          .neq("item", "basket")
+          .limit(5000),
         supabase
           .from("food_prices")
           .select("item, price_rm")
           .gte("date", lateCutoff)
-          .neq("item", "basket"),
+          .neq("item", "basket")
+          .limit(5000),
         supabase
           .from("indicators")
           .select("value")
@@ -128,6 +132,8 @@ export function usePurchasingPowerAnalysis() {
         losers,
         stable,
         cpiChange: Math.round(cpiChange * 10) / 10,
+        itemCount: items.length,
+        latestDate: latestRow.date,
       };
     },
     staleTime: 30 * 60 * 1000, // 30 min cache — this changes rarely
