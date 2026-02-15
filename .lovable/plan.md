@@ -1,32 +1,64 @@
 
+# Update Purchasing Power Analysis + Verify Pipeline Integrity
 
-# Fix Build Errors + Add Text Logo to Header
+## Problem Found
 
-## 1. Fix Build Errors in sync-dosm
+The purchasing power analysis is silently missing items because the database queries exceed the 1000-row default limit:
+- Q1 2022 data: 1,860 rows (truncated to 1,000)
+- Latest period data: 1,171 rows (truncated to 1,000)
 
-All 19 build errors stem from one root cause: the auto-generated Supabase types file doesn't yet reflect the new `sanity_check_results` and `quarantined_prices` tables. The Supabase client infers `never` for unknown tables, causing every `.from("quarantined_prices")`, `.from("sanity_check_results")`, and `.from("indicators")` call to fail type-checking.
+This means some of the 25 food items get dropped entirely from the results, depending on alphabetical ordering.
 
-**Fix:** Cast the Supabase client to `any` for these operations, or use explicit type annotations on the query results. The simplest and most maintainable approach is to type the `supabase` parameter as `any` in the helper functions (`runSanityPipeline`, `upsertWithSanityCheck`, `syncCPI`, `processMonthCSV`) since edge functions don't benefit from strict Supabase typing the way frontend code does.
+## Changes
 
-Specifically:
-- Change `supabase: ReturnType<typeof createClient>` to `supabase: any` in `runSanityPipeline`, `upsertWithSanityCheck`, `syncCPI`, and `processMonthCSV`
-- This resolves all 19 type errors in one sweep
+### 1. Fix `src/hooks/usePurchasingPowerAnalysis.ts`
 
-## 2. Add Text Logo to Header
+**Root cause fix:** Add `.limit(5000)` to both the early-period and late-period queries so all rows are fetched.
 
-Add a clickable "@bryanlauwk" text logo in the top-right corner of the header, next to the existing language toggle button.
+**Additional improvements:**
+- Add `itemCount` field to `PurchasingPowerData` so the UI can display total coverage (e.g., "Across 25 items")
+- Add `latestDate` field so the UI knows the comparison end date
 
-**Changes to `src/components/PriceHeader.tsx`:**
-- Replace the lone language toggle button with a small flex group containing:
-  1. A clickable link `@bryanlauwk` pointing to `https://bryanlauwk.fun`, styled as subtle muted text that highlights on hover (matching the editorial brand)
-  2. A `·` separator
-  3. The existing language toggle button
-- Position: top-right, aligned with the current language button location
+### 2. Update `src/components/PurchasingPowerSummary.tsx`
 
-## Files to Modify
+- Show item count in the subtitle area (e.g., "25 items" badge next to the CPI badge)
+- No structural changes needed -- the two-column layout (losers vs stable) already works correctly once all items are returned
+
+### 3. Add translation key in `src/lib/translations.ts`
+
+- Add `"analysis.itemCount"` with `zh: "品项"` / `en: "items"` for the item count badge
+
+### 4. Verify Perplexity Layer 2 and audit integrity (no code changes needed)
+
+The pipeline is confirmed working:
+- Latest audit: `passed: true`, 0 errors, 12 warnings, CPI 134.7
+- Perplexity Layer 2 ran successfully with citations
+- Quarantine system functioning (0 items quarantined = clean data)
+
+No corrections needed to the pipeline or audit data.
+
+---
+
+## Technical Details
+
+### Query fix (the critical change)
+
+```text
+Before:
+  supabase.from("food_prices").select("item, price_rm").gte("date", "2022-01-01").lte("date", "2022-03-31")
+  // Returns max 1000 rows -- misses items
+
+After:
+  supabase.from("food_prices").select("item, price_rm").gte("date", "2022-01-01").lte("date", "2022-03-31").limit(5000)
+  // Returns all 1860 rows -- all 25 items covered
+```
+
+Same fix applied to the late-period query.
+
+### Files to modify
 
 | File | Change |
 |------|--------|
-| `supabase/functions/sync-dosm/index.ts` | Fix all 19 type errors by using `any` for supabase parameter types |
-| `src/components/PriceHeader.tsx` | Add clickable text logo next to language toggle |
-
+| `src/hooks/usePurchasingPowerAnalysis.ts` | Add `.limit(5000)` to both queries; add `itemCount` and `latestDate` to return type |
+| `src/components/PurchasingPowerSummary.tsx` | Show item count badge in header |
+| `src/lib/translations.ts` | Add `analysis.itemCount` translation |
