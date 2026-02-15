@@ -85,6 +85,9 @@ export function PurchasingPowerSummary({ onItemSelect }: PurchasingPowerSummaryP
           <span className="ml-1.5 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             CPI {data.cpiChange > 0 ? "+" : ""}{data.cpiChange}%
           </span>
+          <span className="ml-1 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {data.itemCount} {t("analysis.itemCount", lang)}
+          </span>
         </p>
       </div>
 

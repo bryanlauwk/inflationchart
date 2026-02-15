@@ -179,6 +179,10 @@ const translations = {
     zh: "受补贴保护 / 价格稳定",
     en: "Subsidized / Price-Stable",
   },
+  "analysis.itemCount": {
+    zh: "品项",
+    en: "items",
+  },
   "analysis.footnote": {
     zh: "实际价格变化 = 名义价格变化 − 通胀率。负值表示购买力增加（价格涨幅低于通胀）。数据基于全国每日平均价格，每日自动更新。",
     en: "Real change = nominal change − inflation. Negative values mean purchasing power increased (price rose less than inflation). Based on national daily averages, updated daily.",
