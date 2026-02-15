@@ -45,12 +45,23 @@ export function PriceHeader({
               <DataFreshnessBadge />
             </div>
           </div>
-          <button
-            onClick={toggleLang}
-            className="mt-1 shrink-0 text-sm text-muted-foreground transition-colors hover:text-primary"
-          >
-            {lang === "zh" ? "EN" : "中"}
-          </button>
+          <div className="mt-1 flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+            <a
+              href="https://www.bryanlauwk.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-primary"
+            >
+              @bryanlauwk
+            </a>
+            <span aria-hidden="true">·</span>
+            <button
+              onClick={toggleLang}
+              className="transition-colors hover:text-primary"
+            >
+              {lang === "zh" ? "EN" : "中"}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
