@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Printer, Share2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Printer, Share2, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { g, type GameKey } from "@/lib/gameTranslations";
-import { PRESETS, type ItemId } from "@/lib/catalogue";
+import { g } from "@/lib/gameTranslations";
+import { ITEM_BY_ID, PRESETS, clampQty, type ItemId } from "@/lib/catalogue";
 import {
   computeBasket,
   sanitizeBasket,
@@ -14,10 +15,12 @@ import {
   usableMonths,
   useMonthlyPrices,
 } from "@/hooks/useMonthlyPrices";
-import { Welcome } from "@/components/game/Welcome";
+import { HeroScene } from "@/components/game/HeroScene";
+import { BasketTray } from "@/components/game/BasketTray";
 import { BasketEditor } from "@/components/game/BasketEditor";
 import { MonthPicker } from "@/components/game/MonthPicker";
 import { Receipt } from "@/components/game/Receipt";
+import { RevealOverlay } from "@/components/game/RevealOverlay";
 import { GuessGame } from "@/components/game/GuessGame";
 import { ChangedMost } from "@/components/game/ChangedMost";
 import { HowItWorks } from "@/components/game/HowItWorks";
@@ -31,9 +34,7 @@ const Index = () => {
   const { lang, toggleLang } = useLanguage();
   const { data, isLoading, isError, refetch } = useMonthlyPrices();
 
-  // Deep link is read once and never overwritten on first render.
   const initial = useRef(decodeSelection(window.location.search)).current;
-
   const [stage, setStage] = useState<Stage>(initial.basket.length > 0 ? "play" : "welcome");
   const [basket, setBasket] = useState<BasketLine[]>(
     initial.basket.length > 0 ? initial.basket : loadStoredBasket(),
@@ -41,10 +42,12 @@ const Index = () => {
   const [baselineMonth, setBaselineMonth] = useState<string | null>(initial.baselineMonth);
   const [comparisonMonth, setComparisonMonth] = useState<string | null>(initial.comparisonMonth);
   const [mode, setMode] = useState<Mode>("same-groceries");
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [revealOpen, setRevealOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   const months = useMemo(() => usableMonths(data), [data]);
 
-  // Resolve months against what actually exists, once the data lands.
   useEffect(() => {
     if (months.length === 0) return;
     const fallback = defaultMonthPair(months);
@@ -59,7 +62,6 @@ const Index = () => {
   }, [basket]);
 
   const availableItems = useMemo(() => new Set<ItemId>(data?.items ?? []), [data]);
-
   const resolvedBaseline = baselineMonth ?? months[0] ?? "";
   const resolvedComparison = comparisonMonth ?? months[months.length - 1] ?? "";
 
@@ -72,6 +74,26 @@ const Index = () => {
     const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
     setBasket(sanitizeBasket(preset.items));
     setStage("play");
+    setEditorOpen(false);
+    setShowDetails(false);
+  }, []);
+
+  const toggleSceneItem = useCallback((id: ItemId) => {
+    setBasket((prev) => {
+      const existing = prev.find((line) => line.id === id);
+      if (existing) return prev.filter((line) => line.id !== id);
+      return [...prev, { id, qty: ITEM_BY_ID[id].defaultQty }];
+    });
+    setStage("play");
+  }, []);
+
+  const changeQty = useCallback((id: ItemId, qty: number) => {
+    setBasket((prev) => {
+      const step = ITEM_BY_ID[id].step;
+      const nextQty = clampQty(qty, step);
+      const without = prev.filter((line) => line.id !== id);
+      return nextQty > 0 ? [...without, { id, qty: nextQty }] : without;
+    });
   }, []);
 
   const handleShare = useCallback(async () => {
@@ -92,28 +114,45 @@ const Index = () => {
     }
   }, [basket, resolvedBaseline, resolvedComparison, lang]);
 
+  const handleStartOver = useCallback(() => {
+    setBasket([]);
+    setStage("welcome");
+    setEditorOpen(false);
+    setRevealOpen(false);
+    setShowDetails(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const handleSeeDetails = useCallback(() => {
+    setRevealOpen(false);
+    setShowDetails(true);
+    window.setTimeout(() => {
+      document.getElementById("results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }, []);
+
   const nav = (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 backdrop-blur">
       <nav
         aria-label="Main"
-        className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3"
+        className="mx-auto flex max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6"
       >
         <button
           type="button"
           onClick={() => setStage("welcome")}
-          className="font-serif text-xl font-bold tracking-tight text-foreground"
+          className="font-serif text-2xl font-bold tracking-tight text-primary"
         >
           {g("nav.brand", lang)}
         </button>
-        <div className="flex items-center gap-3 text-sm">
-          <a href="#how-it-works" className="min-h-11 px-1 py-3 text-foreground hover:text-primary">
+        <div className="flex items-center gap-2 text-sm sm:gap-4">
+          <a href="#how-it-works" className="hidden min-h-11 px-1 py-3 text-foreground hover:text-primary sm:inline-block">
             {g("nav.how", lang)}
           </a>
           <a
             href="https://www.bryanlauwk.fun"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden min-h-11 px-1 py-3 text-muted-foreground hover:text-primary sm:inline-block"
+            className="hidden min-h-11 px-1 py-3 text-muted-foreground hover:text-primary md:inline-block"
           >
             @bryanlauwk
           </a>
@@ -174,49 +213,24 @@ const Index = () => {
     <div className="min-h-screen">
       {nav}
 
-      {stage === "welcome" ? (
-        <main>
-          <Welcome
-            onQuickStart={() => startPreset("everyday")}
-            onBuildOwn={() => {
-              setBasket([]);
-              setStage("play");
-            }}
-          />
-          <section className="mx-auto max-w-6xl px-4 pb-16">
-            <h2 className="font-serif text-xl font-bold text-foreground">{g("preset.pick", lang)}</h2>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-              {PRESETS.map((preset) => (
-                <li key={preset.id}>
-                  <button
-                    type="button"
-                    onClick={() => startPreset(preset.id)}
-                    className="min-h-[5rem] w-full rounded-2xl border-2 border-border bg-card p-4 text-left transition-colors hover:border-primary"
-                  >
-                    <span className="block font-serif text-lg font-bold text-foreground">
-                      {g(`preset.${preset.id}` as GameKey, lang)}
-                    </span>
-                    <span className="mt-1 block text-sm text-muted-foreground">
-                      {preset.items.length} {g("editor.itemsIn", lang)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-sm text-muted-foreground">{g("preset.note", lang)}</p>
-          </section>
-          <div className="mx-auto max-w-6xl px-4 pb-16">
-            <HowItWorks latestObservation={data?.latestObservation ?? null} />
-          </div>
-          {footer}
-        </main>
-      ) : (
-        <main className="mx-auto max-w-6xl px-4 py-6 md:py-10">
-          {isLoading || !result ? (
-            <p className="py-24 text-center text-lg text-muted-foreground">{g("common.loading", lang)}</p>
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:items-start">
-              <div className="space-y-6">
+      <main className="mx-auto max-w-[1600px] px-3 py-3 sm:px-5 lg:px-6">
+        {isLoading || !result ? (
+          <p className="py-32 text-center text-lg text-muted-foreground">{g("common.loading", lang)}</p>
+        ) : (
+          <>
+            <div className="grid min-h-[calc(100svh-5.5rem)] gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
+              <div className="space-y-4">
+                <HeroScene
+                  basket={basket}
+                  availableItems={availableItems}
+                  onAdd={toggleSceneItem}
+                  onQuickStart={() => startPreset("everyday")}
+                  onBuildOwn={() => {
+                    setBasket([]);
+                    setStage("play");
+                    setEditorOpen(true);
+                  }}
+                />
                 <MonthPicker
                   months={months}
                   baselineMonth={resolvedBaseline}
@@ -228,79 +242,109 @@ const Index = () => {
                   latestObservation={data?.latestObservation ?? null}
                   coveredCount={result.coveredLines.length}
                 />
-
-                <BasketEditor
-                  basket={basket}
-                  onChange={setBasket}
-                  availableItems={availableItems}
-                />
-
-                {basket.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-center">
-                    <p className="font-serif text-lg font-bold text-foreground">
-                      {g("editor.empty", lang)}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">{g("editor.emptyHint", lang)}</p>
-                    <Button className="mt-4 h-12 text-base" onClick={() => startPreset("everyday")}>
-                      {g("hero.tryPreset", lang)}
-                    </Button>
-                  </div>
-                )}
-
-                {basket.length > 0 && (
-                  <>
-                    <ChangedMost result={result} prices={data!.prices} months={months} />
-                    <GuessGame
-                      prices={data!.prices}
-                      baselineMonth={resolvedBaseline}
-                      comparisonMonth={resolvedComparison}
-                    />
-                  </>
-                )}
-
-                <HowItWorks latestObservation={data?.latestObservation ?? null} />
               </div>
 
-              <div className="space-y-4 lg:sticky lg:top-20">
-                {basket.length > 0 && (
-                  <>
-                    <Receipt result={result} mode={mode} onModeChange={setMode} />
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        type="button"
-                        className="h-12 flex-1 text-base"
-                        onClick={handleShare}
-                      >
-                        <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
-                        {g("share.button", lang)}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-12 flex-1 text-base"
-                        onClick={() => window.print()}
-                      >
-                        <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
-                        {g("share.print", lang)}
+              <BasketTray
+                basket={basket}
+                result={result}
+                onChangeQty={changeQty}
+                onOpenEditor={() => setEditorOpen(true)}
+                onReveal={() => setRevealOpen(true)}
+                onStartOver={handleStartOver}
+              />
+            </div>
+
+            <AnimatePresence>
+              {editorOpen && (
+                <motion.div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="editor-dialog-title"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[60] overflow-y-auto bg-foreground/40 p-3 backdrop-blur-sm sm:p-6"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 18, scale: 0.97 }}
+                    className="mx-auto max-w-6xl"
+                  >
+                    <div className="mb-3 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-xl">
+                      <h2 id="editor-dialog-title" className="font-serif text-xl font-bold text-foreground">
+                        {lang === "zh" ? "挑选你的杂货" : "Build your basket"}
+                      </h2>
+                      <Button type="button" variant="ghost" className="h-11" onClick={() => setEditorOpen(false)}>
+                        <X className="mr-2 h-4 w-4" aria-hidden="true" />
+                        {g("common.close", lang)}
                       </Button>
                     </div>
-                  </>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-11 w-full text-base"
-                  onClick={() => setStage("welcome")}
-                >
-                  {g("common.startOver", lang)}
-                </Button>
-              </div>
-            </div>
-          )}
-        </main>
-      )}
+                    <BasketEditor
+                      basket={basket}
+                      onChange={setBasket}
+                      availableItems={availableItems}
+                    />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-      {stage === "play" && footer}
+            <AnimatePresence>
+              {revealOpen && result && !result.empty && (
+                <RevealOverlay
+                  result={result}
+                  onClose={() => setRevealOpen(false)}
+                  onSeeDetails={handleSeeDetails}
+                />
+              )}
+            </AnimatePresence>
+
+            {showDetails && (
+              <motion.section
+                id="results"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mx-auto mt-8 max-w-5xl scroll-mt-20 space-y-6"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">The full receipt</p>
+                    <h2 className="font-serif text-3xl font-bold text-foreground">
+                      {lang === "zh" ? "价格故事的细节" : "The price story, unpacked"}
+                    </h2>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="button" className="h-11" onClick={handleShare}>
+                      <Share2 className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {g("share.button", lang)}
+                    </Button>
+                    <Button type="button" variant="outline" className="h-11" onClick={() => window.print()}>
+                      <Printer className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {g("share.print", lang)}
+                    </Button>
+                  </div>
+                </div>
+                <Receipt result={result} mode={mode} onModeChange={setMode} />
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <ChangedMost result={result} prices={data.prices} months={months} />
+                  <GuessGame
+                    prices={data.prices}
+                    baselineMonth={resolvedBaseline}
+                    comparisonMonth={resolvedComparison}
+                  />
+                </div>
+              </motion.section>
+            )}
+
+            <div className="mx-auto mt-8 max-w-5xl">
+              <HowItWorks latestObservation={data?.latestObservation ?? null} />
+            </div>
+          </>
+        )}
+      </main>
+
+      {footer}
     </div>
   );
 };
