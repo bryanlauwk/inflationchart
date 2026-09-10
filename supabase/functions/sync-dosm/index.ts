@@ -420,7 +420,10 @@ async function runSanityPipeline(
 
   console.log(`Sanity Layer 1: ${internalFlags.length} flags (${errorCount} errors, ${warnCount} warnings)`);
 
-  // ── Quarantine: separate error items from clean items ──
+  // ── Quarantine: hold back ONLY the flagged observations ──
+  // The flags are computed against the latest observed date, so quarantining is
+  // scoped to that date. Earlier observations of the same item are unrelated and
+  // must not be discarded because today's reading looked odd.
   const errorItems = new Set(
     internalFlags
       .filter((f) => f.severity === "error" && f.item !== "_dataset")
@@ -428,22 +431,19 @@ async function runSanityPipeline(
   );
 
   const quarantinedItems: Array<{ date: string; item: string; price_rm: number; reason: string }> = [];
-  const cleanPrices: Array<{ date: string; item: string; price_rm: number }> = [];
+  const cleanPrices: ObservedPrice[] = [];
 
   for (const p of individualPrices) {
-    if (errorItems.has(p.item)) {
+    if (errorItems.has(p.item) && p.date === latestDate) {
       const reasons = internalFlags
         .filter((f) => f.item === p.item && f.severity === "error")
         .map((f) => f.message)
         .join("; ");
-      quarantinedItems.push({ ...p, reason: reasons });
+      quarantinedItems.push({ date: p.date, item: p.item, price_rm: p.price_rm, reason: reasons });
     } else {
       cleanPrices.push(p);
     }
   }
-
-  // Basket prices always pass through (they're computed, not raw)
-  cleanPrices.push(...basketPrices);
 
   console.log(`Sanity pipeline: ${cleanPrices.length} clean, ${quarantinedItems.length} quarantined`);
 
