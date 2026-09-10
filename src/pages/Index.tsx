@@ -242,7 +242,7 @@ const Index = () => {
         ) : (
           <>
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-              <div className="space-y-4">
+              <div className="min-w-0 space-y-4">
                 <HeroScene
                   basket={basket}
                   availableItems={availableItems}

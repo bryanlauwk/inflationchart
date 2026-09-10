@@ -125,7 +125,7 @@ export function HeroScene({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.5 }}
-            className="mt-4 max-w-xl font-serif text-5xl font-bold leading-[0.95] tracking-tight text-paper [text-shadow:0_2px_18px_hsl(var(--ink)/0.65)] sm:text-6xl lg:text-7xl"
+            className="mt-4 max-w-xl font-serif text-4xl font-bold leading-[0.98] tracking-tight text-paper [text-shadow:0_2px_18px_hsl(var(--ink)/0.65)] sm:text-6xl lg:text-7xl"
           >
             {lang === "zh" ? (
               <>
