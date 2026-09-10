@@ -6,6 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Provenance ────────────────────────────────────────────────────
+const PRICECATCHER_BASE = "https://storage.data.gov.my/pricecatcher/";
+const SOURCE_TYPE = "pricecatcher_csv";
+const MAPPING_VERSION = "2026.02-itemmap-v2";
+
+function csvUrlForMonth(month: string): string {
+  return `${PRICECATCHER_BASE}pricecatcher_${month}.csv`;
+}
+
+/** A validated daily average for one item, with its contributing observation count. */
+interface ObservedPrice {
+  date: string;
+  item: string;
+  price_rm: number;
+  observation_count?: number;
+}
+
+
 // ── Item code mapping ─────────────────────────────────────────────
 const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
   chicken:    { codes: [1],    divisor: 1 },
