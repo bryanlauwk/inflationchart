@@ -211,7 +211,7 @@ export function HeroScene({
         </div>
       </div>
 
-      <div className="absolute inset-0 z-20" aria-label="Groceries in the scene">
+      <div className="absolute inset-0 z-20 hidden sm:block" aria-hidden="false">
         {hotspotData.map(({ id, left, top, tilt }, index) => {
           const item = ITEM_BY_ID[id];
           const selected = selectedIds.has(id);
@@ -222,7 +222,7 @@ export function HeroScene({
             <motion.button
               key={id}
               type="button"
-              aria-label={`${selected ? "Remove" : "Add"} ${name}`}
+              aria-label={`${name} — ${selected ? g("item.inBasket", lang) : g("item.tapAdd", lang)}`}
               aria-pressed={selected}
               onClick={() => onAdd(id)}
               whileHover={{ scale: 1.12, rotate: tilt }}
