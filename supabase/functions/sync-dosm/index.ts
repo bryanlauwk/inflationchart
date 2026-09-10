@@ -360,19 +360,18 @@ Please provide your independent assessment using web search for current Malaysia
 // ══════════════════════════════════════════════════════════════════
 
 async function runSanityPipeline(
-  allPrices: Array<{ date: string; item: string; price_rm: number }>,
+  allPrices: ObservedPrice[],
   supabase: any,
 ): Promise<{
-  cleanPrices: Array<{ date: string; item: string; price_rm: number }>;
+  cleanPrices: ObservedPrice[];
   quarantinedItems: Array<{ date: string; item: string; price_rm: number; reason: string }>;
   auditSummary: { errorCount: number; warnCount: number; passed: boolean };
 }> {
-  // Separate basket from individual items
+  // Only raw observations reach this stage — derived baskets are computed later.
   const individualPrices = allPrices.filter((p) => p.item !== "basket");
-  const basketPrices = allPrices.filter((p) => p.item === "basket");
 
   if (individualPrices.length === 0) {
-    return { cleanPrices: allPrices, quarantinedItems: [], auditSummary: { errorCount: 0, warnCount: 0, passed: true } };
+    return { cleanPrices: [], quarantinedItems: [], auditSummary: { errorCount: 0, warnCount: 0, passed: true } };
   }
 
   // Find latest date for these prices
