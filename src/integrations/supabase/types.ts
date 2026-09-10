@@ -18,23 +18,44 @@ export type Database = {
         Row: {
           created_at: string | null
           date: string
+          fetched_at: string | null
           id: string
           item: string
+          mapping_version: string | null
+          observation_count: number | null
           price_rm: number
+          source_file_month: string | null
+          source_type: string
+          source_url: string | null
+          unit: string | null
         }
         Insert: {
           created_at?: string | null
           date: string
+          fetched_at?: string | null
           id?: string
           item: string
+          mapping_version?: string | null
+          observation_count?: number | null
           price_rm: number
+          source_file_month?: string | null
+          source_type?: string
+          source_url?: string | null
+          unit?: string | null
         }
         Update: {
           created_at?: string | null
           date?: string
+          fetched_at?: string | null
           id?: string
           item?: string
+          mapping_version?: string | null
+          observation_count?: number | null
           price_rm?: number
+          source_file_month?: string | null
+          source_type?: string
+          source_url?: string | null
+          unit?: string | null
         }
         Relationships: []
       }
@@ -56,6 +77,60 @@ export type Database = {
           id?: string
           type?: string
           value?: number
+        }
+        Relationships: []
+      }
+      ingestion_runs: {
+        Row: {
+          action: string
+          checkpoint: Json
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          function_name: string
+          id: string
+          newest_source_date: string | null
+          rows_quarantined: number
+          rows_upserted: number
+          source_month: string | null
+          source_type: string | null
+          source_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          checkpoint?: Json
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          function_name: string
+          id?: string
+          newest_source_date?: string | null
+          rows_quarantined?: number
+          rows_upserted?: number
+          source_month?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          checkpoint?: Json
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          function_name?: string
+          id?: string
+          newest_source_date?: string | null
+          rows_quarantined?: number
+          rows_upserted?: number
+          source_month?: string | null
+          source_type?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -139,10 +214,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      monthly_indicators: {
+        Row: {
+          last_observed: string | null
+          month: string | null
+          observations: number | null
+          type: string | null
+          value: number | null
+        }
+        Relationships: []
+      }
+      monthly_item_prices: {
+        Row: {
+          avg_price_rm: number | null
+          first_observed: string | null
+          item: string | null
+          last_observed: string | null
+          max_price_rm: number | null
+          min_price_rm: number | null
+          month: string | null
+          observed_days: number | null
+          sourced_rows: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      verify_pipeline_cron_secret: {
+        Args: { candidate: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
