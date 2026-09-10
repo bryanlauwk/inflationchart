@@ -24,6 +24,21 @@ const hotspotData: Array<{ id: ItemId; left: string; top: string; tilt: number }
   { id: "kangkung", left: "26%", top: "68%", tilt: -4 },
 ];
 
+const Arrow = ({ d }: { d: string }) => (
+  <motion.path
+    d={d}
+    fill="none"
+    stroke="hsl(var(--paper))"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    strokeWidth="0.35"
+    strokeDasharray="1.2 0.8"
+    initial={{ pathLength: 0, opacity: 0 }}
+    animate={{ pathLength: 1, opacity: 0.82 }}
+    transition={{ duration: 0.7, delay: 0.45, ease: "easeOut" }}
+  />
+);
+
 export function HeroScene({
   basket,
   availableItems,
@@ -46,7 +61,48 @@ export function HeroScene({
         className="absolute inset-0 h-full w-full object-cover object-center"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/30 to-foreground/5" />
-      <div className="absolute inset-0 bg-gradient-to-t from-foreground/65 via-transparent to-foreground/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 via-transparent to-foreground/10" />
+
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+      >
+        <Arrow d="M34 55 C38 57, 41 61, 43 64" />
+        <Arrow d="M60 58 C60 61, 60 64, 60 66" />
+        <Arrow d="M88 53 C84 56, 81 60, 78 62" />
+        <Arrow d="M75 31 C74 34, 73 36, 72 39" />
+        <Arrow d="M17 60 C21 62, 24 65, 26 68" />
+        <path
+          d="M7 88 C12 82, 14 76, 13 69"
+          fill="none"
+          stroke="hsl(var(--mustard))"
+          strokeLinecap="round"
+          strokeWidth="0.55"
+          opacity="0.75"
+        />
+        <path
+          d="M8 86 C12 88, 16 88, 19 86 M10 82 C14 83, 17 82, 20 80"
+          fill="none"
+          stroke="hsl(var(--paper))"
+          strokeLinecap="round"
+          strokeWidth="0.3"
+          opacity="0.7"
+        />
+        <path
+          d="M89 20 C92 16, 95 16, 97 18 C95 21, 92 22, 89 20 Z"
+          fill="hsl(var(--mustard) / 0.8)"
+          stroke="hsl(var(--paper))"
+          strokeWidth="0.25"
+        />
+        <path
+          d="M93 17 C93 13, 96 11, 99 12 C98 16, 96 18, 93 17 Z"
+          fill="hsl(var(--vermilion) / 0.75)"
+          stroke="hsl(var(--paper))"
+          strokeWidth="0.25"
+        />
+      </svg>
 
       <div className="relative z-10 flex min-h-[calc(100svh-5rem)] flex-col justify-between p-5 sm:p-8 lg:p-10">
         <div className="max-w-2xl">
@@ -145,10 +201,13 @@ export function HeroScene({
                   {selected ? "✓" : "+"}
                 </span>
               </span>
-              <span className="mt-1 block rounded-full bg-foreground/80 px-2 py-0.5 text-center text-[11px] font-bold text-paper opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                {available ? name : `${name} · no history`}
+              <span className="mt-1 hidden rotate-[-3deg] rounded-sm border border-foreground/10 bg-paper px-2 py-1 text-center font-serif text-xs font-bold text-foreground shadow-md sm:block">
+                {name}
+                <span className="block font-sans text-[10px] font-medium text-primary">
+                  {selected ? "in your basket" : "tap to add"}
+                </span>
               </span>
-              <span className="sr-only">{item.unit}</span>
+              <span className="sr-only">{available ? item.unit : `${item.unit}, no usable history`}</span>
             </motion.button>
           );
         })}
