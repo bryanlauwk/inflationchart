@@ -625,7 +625,27 @@ async function processMonthCSV(
     console.log(`${month}: rejected ${spikeRejected.size} day-over-day spikes`);
   }
 
-  // ── Step 2: Load previous month's basket item prices from DB ──
+  return results;
+}
+
+/**
+ * Derives the weighted basket index for a month from VALIDATED observations only.
+ * Anything quarantined upstream can never reach this function, so a rejected raw
+ * value can never enter a basket total.
+ */
+async function computeBaskets(
+  month: string,
+  validated: ObservedPrice[],
+  supabase: any,
+): Promise<Array<{ date: string; price_rm: number; observation_count: number }>> {
+  const itemPriceByDate: Record<string, Record<string, number>> = {};
+  for (const p of validated) {
+    if (!BASKET_ITEMS.has(p.item)) continue;
+    if (!itemPriceByDate[p.date]) itemPriceByDate[p.date] = {};
+    itemPriceByDate[p.date][p.item] = p.price_rm;
+  }
+
+  // Load the tail of the previous month so the rolling window works at month edges.
   const monthFirstDay = `${month}-01`;
   const lookbackStart = subtractDays(monthFirstDay, ROLLING_WINDOW_DAYS);
 
@@ -638,19 +658,19 @@ async function processMonthCSV(
     .order("date", { ascending: true });
 
   if (prevMonthData && prevMonthData.length > 0) {
-    console.log(`${month}: loaded ${prevMonthData.length} previous-month basket item prices for rolling window`);
     for (const row of prevMonthData) {
       if (!itemPriceByDate[row.date]) itemPriceByDate[row.date] = {};
-      itemPriceByDate[row.date][row.item] = row.price_rm;
+      if (itemPriceByDate[row.date][row.item] == null) {
+        itemPriceByDate[row.date][row.item] = row.price_rm;
+      }
     }
   }
 
-  // ── Step 3: Compute weighted basket with rolling window ──
-  const currentMonthDates = [...new Set(results.map((r) => r.date))].sort();
+  const currentMonthDates = [...new Set(validated.map((r) => r.date))].sort();
   const BASKET_ITEM_LIST = [...BASKET_ITEMS];
 
-  let basketEmitted = 0;
-  let basketSkipped = 0;
+  const baskets: Array<{ date: string; price_rm: number; observation_count: number }> = [];
+  let skipped = 0;
 
   for (const date of currentMonthDates) {
     const resolved: Record<string, number> = {};
@@ -670,26 +690,21 @@ async function processMonthCSV(
       for (const [item, price] of Object.entries(resolved)) {
         weightedSum += price * (BASKET_WEIGHTS[item] ?? 1);
       }
-      results.push({
+      baskets.push({
         date,
-        item: "basket",
         price_rm: Math.round(weightedSum * 100) / 100,
+        observation_count: BASKET_ITEMS.size,
       });
-      basketEmitted++;
     } else {
-      const missing = BASKET_ITEM_LIST.filter((i) => !resolved[i]);
-      basketSkipped++;
-      if (basketSkipped <= 3) {
-        console.log(`Skipping basket for ${date}: missing [${missing.join(", ")}] in ${ROLLING_WINDOW_DAYS}-day window`);
-      }
+      skipped++;
     }
   }
 
   console.log(
-    `${month} basket: ${basketEmitted} emitted, ${basketSkipped} skipped (require all ${BASKET_ITEMS.size} items in ${ROLLING_WINDOW_DAYS}-day window)`
+    `${month} basket: ${baskets.length} derived from validated data, ${skipped} skipped (incomplete ${ROLLING_WINDOW_DAYS}-day window)`,
   );
 
-  return results;
+  return baskets;
 }
 
 // ── CPI Sync ─────────────────────────────────────────────────────
