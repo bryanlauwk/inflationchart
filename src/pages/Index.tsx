@@ -17,6 +17,7 @@ import { RevealOverlay } from "@/components/game/RevealOverlay";
 import { GuessGame } from "@/components/game/GuessGame";
 import { ChangedMost } from "@/components/game/ChangedMost";
 import { HowItWorks } from "@/components/game/HowItWorks";
+import { MobileBasketBar } from "@/components/game/MobileBasketBar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -170,11 +171,13 @@ const Index = () => {
             type="button"
             onClick={() => setSoundEnabled((value) => !value)}
             aria-pressed={soundEnabled}
-            aria-label={soundEnabled ? "Turn sound off" : "Turn sound on"}
+            aria-label={soundEnabled ? g("nav.soundToggleOff", lang) : g("nav.soundToggleOn", lang)}
             className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-3 py-2 font-medium text-foreground hover:border-primary"
           >
             {soundEnabled ? <Volume2 className="h-4 w-4" aria-hidden="true" /> : <VolumeX className="h-4 w-4" aria-hidden="true" />}
-            <span className="hidden sm:inline">{soundEnabled ? "Sound on" : "Sound off"}</span>
+            <span className="hidden sm:inline">
+              {soundEnabled ? g("nav.soundOn", lang) : g("nav.soundOff", lang)}
+            </span>
           </button>
           <button
             type="button"
@@ -233,13 +236,13 @@ const Index = () => {
     <div className="min-h-screen">
       {nav}
 
-      <main className="mx-auto max-w-[1600px] px-3 py-3 sm:px-5 lg:px-6">
+      <main className="mx-auto max-w-[1600px] px-3 pb-24 pt-3 sm:px-5 lg:px-6 lg:pb-3">
         {isLoading || !result ? (
           <p className="py-32 text-center text-lg text-muted-foreground">{g("common.loading", lang)}</p>
         ) : (
           <>
-            <div className="grid min-h-[calc(100svh-5.5rem)] gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-stretch">
-              <div className="space-y-4">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+              <div className="min-w-0 space-y-4">
                 <HeroScene
                   basket={basket}
                   availableItems={availableItems}
@@ -266,6 +269,7 @@ const Index = () => {
               <BasketTray
                 basket={basket}
                 result={result}
+                step={showDetails ? 3 : basket.length > 0 ? 2 : 1}
                 onChangeQty={changeQty}
                 onOpenEditor={() => setEditorOpen(true)}
                 onReveal={() => {
@@ -323,13 +327,15 @@ const Index = () => {
                 id="results"
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mx-auto mt-8 max-w-5xl scroll-mt-20 space-y-6"
+                className="print-area mx-auto mt-8 max-w-5xl scroll-mt-20 space-y-6"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">The full receipt</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                      {g("results.kicker", lang)}
+                    </p>
                     <h2 className="font-serif text-3xl font-bold text-foreground">
-                      {lang === "zh" ? "价格故事的细节" : "The price story, unpacked"}
+                      {g("results.title", lang)}
                     </h2>
                   </div>
                   <div className="flex gap-2">
@@ -354,6 +360,15 @@ const Index = () => {
             <div className="mx-auto mt-8 max-w-5xl">
               <HowItWorks latestObservation={data?.latestObservation ?? null} />
             </div>
+
+            <MobileBasketBar
+              count={basket.length}
+              result={result}
+              onReveal={() => {
+                sounds.playReveal();
+                setRevealOpen(true);
+              }}
+            />
           </>
         )}
       </main>

@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
+import { ChevronDown } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { g } from "@/lib/gameTranslations";
 import { t, type TranslationKey } from "@/lib/translations";
-import { ITEM_BY_ID, type ItemId } from "@/lib/catalogue";
+import { ALL_ITEM_IDS, ITEM_BY_ID, type ItemId } from "@/lib/catalogue";
 import type { BasketLine } from "@/lib/basket";
 import { GroceryThumb } from "@/components/game/GroceryThumb";
 import { SceneStickers } from "@/components/game/SceneStickers";
@@ -49,9 +50,16 @@ export function HeroScene({
 }: HeroSceneProps) {
   const { lang } = useLanguage();
   const selectedIds = new Set(basket.map((line) => line.id));
+  const hotspotIds = new Set(hotspotData.map((h) => h.id));
+  const available = ALL_ITEM_IDS.filter((id) => availableItems.has(id));
+  // Hotspots are hidden on small screens, so keep them reachable in the strip.
+  const quickPicks = [
+    ...available.filter((id) => hotspotIds.has(id)),
+    ...available.filter((id) => !hotspotIds.has(id)),
+  ].slice(0, 14);
 
   return (
-    <section className="relative min-h-[calc(100svh-5rem)] overflow-hidden rounded-[2rem] border-2 border-foreground/10 bg-foreground shadow-2xl shadow-foreground/10">
+    <section className="relative min-h-[68svh] overflow-hidden rounded-[2rem] border-2 border-foreground/10 bg-foreground shadow-2xl shadow-foreground/10 lg:min-h-[78svh]">
       <img
         src="/images/kedai-runcit-hero.webp"
         alt={g("hero.imageAlt", lang)}
@@ -61,14 +69,15 @@ export function HeroScene({
         decoding="async"
         className="absolute inset-0 h-full w-full object-cover object-center"
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-foreground/90 via-foreground/30 to-foreground/5" />
-      <div className="absolute inset-0 bg-gradient-to-t from-foreground/70 via-transparent to-foreground/10" />
+      <div className="absolute inset-0 bg-gradient-to-r from-foreground/95 via-foreground/55 to-foreground/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-foreground/45" />
+      <div className="absolute inset-x-0 top-0 h-[58%] bg-gradient-to-br from-foreground/85 via-foreground/45 to-transparent lg:h-[50%] lg:w-[62%]" />
 
       <svg
         aria-hidden="true"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+        className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full overflow-visible sm:block"
       >
         <Arrow d="M34 55 C38 57, 41 61, 43 64" />
         <Arrow d="M60 58 C60 61, 60 64, 60 66" />
@@ -106,65 +115,106 @@ export function HeroScene({
       </svg>
       <SceneStickers />
 
-      <div className="relative z-10 flex min-h-[calc(100svh-5rem)] flex-col justify-between p-5 sm:p-8 lg:p-10">
+      <div className="relative z-10 flex min-h-[68svh] w-full min-w-0 flex-col justify-between p-5 sm:p-8 lg:min-h-[78svh] lg:p-10">
         <div className="max-w-2xl">
           <motion.p
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-xs font-bold uppercase tracking-[0.18em] text-paper/85"
           >
-            Malaysian grocery time machine
+            {g("hero.kicker", lang)}
           </motion.p>
           <motion.h1
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08, duration: 0.5 }}
-            className="mt-4 max-w-xl font-serif text-5xl font-bold leading-[0.93] tracking-tight text-paper sm:text-6xl lg:text-8xl"
+            className="mt-4 max-w-xl font-serif text-4xl font-bold leading-[0.98] tracking-tight text-paper [text-shadow:0_2px_18px_hsl(var(--ink)/0.65)] sm:text-6xl lg:text-7xl"
           >
-            What happened to your <span className="text-vermilion">RM100?</span>
+            {lang === "zh" ? (
+              <>
+                你的 <span className="text-mustard">RM100</span> 去哪了？
+              </>
+            ) : (
+              <>
+                What happened to your <span className="text-mustard">RM100?</span>
+              </>
+            )}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.16, duration: 0.5 }}
-            className="mt-5 max-w-lg text-lg leading-relaxed text-paper/90 sm:text-xl"
+            className="mt-5 max-w-lg text-lg leading-relaxed text-paper/90 [text-shadow:0_1px_10px_hsl(var(--ink)/0.7)] sm:text-xl"
           >
             {g("hero.sub", lang)}
           </motion.p>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex w-full min-w-0 flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row">
-            <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                type="button"
-                size="lg"
-                onClick={onQuickStart}
-                className="h-14 w-full border-2 border-paper/20 bg-primary px-7 text-base font-bold text-primary-foreground shadow-xl sm:w-auto"
-              >
-                {g("hero.tryPreset", lang)}
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ y: -3 }} whileTap={{ scale: 0.97 }}>
-              <Button
-                type="button"
-                size="lg"
-                variant="outline"
-                onClick={onBuildOwn}
-                className="h-14 w-full border-2 border-paper/80 bg-paper/10 px-7 text-base font-bold text-paper backdrop-blur-sm hover:bg-paper hover:text-foreground sm:w-auto"
-              >
-                {g("hero.build", lang)}
-              </Button>
-            </motion.div>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onQuickStart}
+              className="h-14 w-full border-2 border-paper/20 bg-primary px-7 text-base font-bold text-primary-foreground shadow-xl transition-transform hover:-translate-y-0.5 sm:w-auto"
+            >
+              {g("hero.tryPreset", lang)}
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              onClick={onBuildOwn}
+              className="h-14 w-full border-2 border-paper/80 bg-paper/10 px-7 text-base font-bold text-paper backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-paper hover:text-foreground sm:w-auto"
+            >
+              {g("hero.build", lang)}
+            </Button>
           </div>
-          <div className="flex items-center gap-3 text-sm font-medium text-paper/80">
+          <div className="hidden items-center gap-3 text-sm font-medium text-paper/85 sm:flex">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-paper/50">+</span>
-            <span>Tap a grocery in the scene to add it to your basket</span>
+            <span>{g("hero.tapHint", lang)}</span>
           </div>
+
+          {quickPicks.length > 0 && (
+            <div className="w-full min-w-0 rounded-2xl border border-paper/25 bg-foreground/55 p-3 backdrop-blur-sm">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.14em] text-paper/80">
+                {g("hero.quickPick", lang)}
+              </p>
+              <ul className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1 [&>li]:shrink-0">
+                {quickPicks.map((id) => {
+                  const selected = selectedIds.has(id);
+                  const name = t(`item.${id}` as TranslationKey, lang);
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => onAdd(id)}
+                        aria-pressed={selected}
+                        className={cn(
+                          "flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border-2 px-3 py-1.5 text-sm font-bold transition-colors",
+                          selected
+                            ? "border-mustard bg-mustard/25 text-paper"
+                            : "border-paper/40 bg-paper/10 text-paper hover:bg-paper/25",
+                        )}
+                      >
+                        <GroceryThumb id={id} className="h-7 w-7 rounded" />
+                        {name}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          <p className="hidden items-center gap-1.5 text-xs font-medium text-paper/70 lg:flex">
+            <ChevronDown className="h-4 w-4 animate-bounce" aria-hidden="true" />
+            {g("hero.scroll", lang)}
+          </p>
         </div>
       </div>
 
-      <div className="absolute inset-0 z-20" aria-label="Groceries in the scene">
+      <div className="absolute inset-0 z-20 hidden sm:block" aria-hidden="false">
         {hotspotData.map(({ id, left, top, tilt }, index) => {
           const item = ITEM_BY_ID[id];
           const selected = selectedIds.has(id);
@@ -175,7 +225,7 @@ export function HeroScene({
             <motion.button
               key={id}
               type="button"
-              aria-label={`${selected ? "Remove" : "Add"} ${name}`}
+              aria-label={`${name} — ${selected ? g("item.inBasket", lang) : g("item.tapAdd", lang)}`}
               aria-pressed={selected}
               onClick={() => onAdd(id)}
               whileHover={{ scale: 1.12, rotate: tilt }}
@@ -203,10 +253,10 @@ export function HeroScene({
                   {selected ? "✓" : "+"}
                 </span>
               </span>
-              <span className="mt-1 hidden rotate-[-3deg] rounded-sm border border-foreground/10 bg-paper px-2 py-1 text-center font-serif text-xs font-bold text-foreground shadow-md sm:block">
+              <span className="mt-1 block rotate-[-3deg] rounded-sm border border-foreground/10 bg-paper px-2 py-1 text-center font-serif text-xs font-bold text-foreground shadow-md">
                 {name}
-                <span className="block font-sans text-[10px] font-medium text-primary">
-                  {selected ? "in your basket" : "tap to add"}
+                <span className="hidden font-sans text-[10px] font-medium text-primary sm:block">
+                  {selected ? g("item.inBasket", lang) : g("item.tapAdd", lang)}
                 </span>
               </span>
               <span className="sr-only">{available ? item.unit : `${item.unit}, no usable history`}</span>
@@ -215,11 +265,6 @@ export function HeroScene({
         })}
       </div>
 
-      <div className="pointer-events-none absolute bottom-4 right-4 z-10 hidden max-w-[12rem] rotate-[-4deg] rounded-lg border border-foreground/20 bg-paper/90 px-3 py-2 text-center font-serif text-sm font-bold text-foreground shadow-lg backdrop-blur-sm md:block">
-        Same little things.
-        <br />
-        A fuller tomorrow.
-      </div>
     </section>
   );
 }

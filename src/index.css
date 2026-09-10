@@ -111,6 +111,33 @@
   }
 }
 
+@media print {
+  body {
+    background: white;
+  }
+
+  body:has(.print-area) header,
+  body:has(.print-area) footer,
+  body:has(.print-area) main > * {
+    display: none !important;
+  }
+
+  body:has(.print-area) main .print-area,
+  body:has(.print-area) main:has(.print-area) {
+    display: block !important;
+  }
+
+  .print-area {
+    margin: 0 !important;
+    max-width: none !important;
+  }
+
+  .print-area button,
+  .print-hidden {
+    display: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
