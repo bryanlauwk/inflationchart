@@ -785,113 +785,174 @@ async function upsertWithSanityCheck(
 
 // ── Main ──────────────────────────────────────────────────────────
 
+/**
+ * Two accepted callers, both authenticated:
+ *  1. Service-role bearer token (manual / internal invocation).
+ *  2. pg_cron, which sends a shared secret held in Supabase Vault. The value is
+ *     never written to SQL, the repo or logs — it is generated inside the DB and
+ *     compared through a SECURITY DEFINER function restricted to service_role.
+ */
+async function isAuthorized(req: Request, supabase: any): Promise<boolean> {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader && authHeader === `Bearer ${serviceRoleKey}`) return true;
+
+  const cronSecret = req.headers.get("x-pipeline-secret");
+  if (cronSecret) {
+    const { data, error } = await supabase.rpc("verify_pipeline_cron_secret", {
+      candidate: cronSecret,
+    });
+    if (error) console.error("Scheduler secret verification failed:", error.message);
+    if (data === true) return true;
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    // Auth check: require service role key in Authorization header
-    const authHeader = req.headers.get("Authorization");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  const startedAt = Date.now();
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      serviceRoleKey
+  if (!(await isAuthorized(req, supabase))) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+  }
 
-    let body: Record<string, unknown> = {};
-    try { body = await req.json(); } catch { /* no body */ }
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { /* no body */ }
 
-    const action = (body.action as string) || "sync";
+  const rawAction = (body.action as string) || "sync";
+  // "refresh" is the scheduled entry point: current + previous official month + CPI.
+  const action = rawAction === "refresh" ? "full" : rawAction;
+
+  const { data: runRow } = await supabase
+    .from("ingestion_runs")
+    .insert({
+      function_name: "sync-dosm",
+      action,
+      status: "running",
+      source_type: SOURCE_TYPE,
+      source_url: PRICECATCHER_BASE,
+    })
+    .select("id")
+    .maybeSingle();
+  const runId = (runRow as any)?.id ?? null;
+
+  const finishRun = async (patch: Record<string, unknown>) => {
+    if (!runId) return;
+    await supabase
+      .from("ingestion_runs")
+      .update({ duration_ms: Date.now() - startedAt, ...patch })
+      .eq("id", runId);
+  };
+
+  try {
     const results: Record<string, unknown> = {};
+    let newestSourceDate: string | null = null;
+    let grandUpserted = 0;
+    let grandQuarantined = 0;
+    const monthsProcessed: string[] = [];
 
-    // ── CPI ──
+    const runMonths = async (months: string[]) => {
+      const monthResults: Record<string, unknown> = {};
+      let lastAudit: { errorCount: number; warnCount: number; passed: boolean } | null = null;
+
+      for (const month of months) {
+        const prices = await processMonthCSV(month, supabase);
+        const { upserted, quarantined, auditSummary, newestDate } =
+          await upsertWithSanityCheck(month, prices, supabase);
+        grandUpserted += upserted;
+        grandQuarantined += quarantined;
+        monthsProcessed.push(month);
+        if (newestDate && (!newestSourceDate || newestDate > newestSourceDate)) {
+          newestSourceDate = newestDate;
+        }
+        monthResults[month] = { upserted, quarantined, newestDate };
+        lastAudit = auditSummary;
+      }
+
+      return { monthResults, lastAudit };
+    };
+
     if (action === "cpi") {
       results.cpi = await syncCPI(supabase);
     }
 
-    // ── Full sync: prices (current + previous month) + CPI ──
     if (action === "full") {
       const d = new Date();
       const curMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const pm = new Date(d.getFullYear(), d.getMonth() - 1, 1);
       const prevMonth = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, "0")}`;
 
-      const months = [prevMonth, curMonth];
-      let totalUpserted = 0;
-      let totalQuarantined = 0;
-      const monthResults: Record<string, unknown> = {};
-      let lastAudit: { errorCount: number; warnCount: number; passed: boolean } | null = null;
-
-      for (const month of months) {
-        const prices = await processMonthCSV(month, supabase);
-        const { upserted, quarantined, auditSummary } = await upsertWithSanityCheck(prices, supabase);
-        totalUpserted += upserted;
-        totalQuarantined += quarantined;
-        monthResults[month] = { upserted, quarantined };
-        lastAudit = auditSummary;
-      }
-
-      results.prices = { totalUpserted, totalQuarantined, months: monthResults };
+      const { monthResults, lastAudit } = await runMonths([prevMonth, curMonth]);
+      results.prices = {
+        totalUpserted: grandUpserted,
+        totalQuarantined: grandQuarantined,
+        months: monthResults,
+      };
       results.sanityCheck = lastAudit;
       results.cpi = await syncCPI(supabase);
     }
 
-    // ── Sync prices for specific months ──
     if (action === "sync") {
       const months = (body.months as string[]) || [body.month as string].filter(Boolean);
       if (months.length === 0) {
         const d = new Date();
         months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
       }
-
       months.sort();
 
-      let totalUpserted = 0;
-      let totalQuarantined = 0;
-      const monthResults: Record<string, unknown> = {};
-      let lastAudit: { errorCount: number; warnCount: number; passed: boolean } | null = null;
-
-      for (const month of months) {
-        const prices = await processMonthCSV(month, supabase);
-        const { upserted, quarantined, auditSummary } = await upsertWithSanityCheck(prices, supabase);
-        totalUpserted += upserted;
-        totalQuarantined += quarantined;
-        monthResults[month] = { upserted, quarantined };
-        lastAudit = auditSummary;
-      }
-
-      results.prices = { totalUpserted, totalQuarantined, months: monthResults };
+      const { monthResults, lastAudit } = await runMonths(months);
+      results.prices = {
+        totalUpserted: grandUpserted,
+        totalQuarantined: grandQuarantined,
+        months: monthResults,
+      };
       results.sanityCheck = lastAudit;
     }
 
-    // ── Clear ──
     if (action === "clear") {
-      await supabase.from("food_prices").delete().gte("date", "2000-01-01");
-      await supabase.from("indicators").delete().gte("date", "2000-01-01");
-      await supabase.from("quarantined_prices").delete().gte("date", "2000-01-01");
-      results.cleared = true;
+      // Retired: destructive bulk deletes are no longer available from this endpoint.
+      // Historical rows are preserved for audit; anomalies go to quarantined_prices.
+      await finishRun({ status: "rejected", error: "clear action retired" });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "The 'clear' action has been retired. Historical observations are preserved for audit; use quarantine review instead.",
+        }),
+        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
+    await finishRun({
+      status: "success",
+      rows_upserted: grandUpserted,
+      rows_quarantined: grandQuarantined,
+      newest_source_date: newestSourceDate,
+      source_month: monthsProcessed[monthsProcessed.length - 1] ?? null,
+      checkpoint: { months: monthsProcessed, action },
+    });
+
     return new Response(
-      JSON.stringify({ success: true, ...results }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: true, runId, newestSourceDate, ...results }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
-    console.error("sync-dosm error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("sync-dosm error:", message);
+    await finishRun({ status: "error", error: message });
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, runId, error: message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
