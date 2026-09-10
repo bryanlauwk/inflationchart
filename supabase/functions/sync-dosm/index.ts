@@ -752,35 +752,89 @@ async function syncCPI(
 // ── UPSERT WITH SANITY PIPELINE ──────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
 
+/**
+ * Order matters: raw observations are validated and quarantined FIRST, and only
+ * the surviving observations are allowed to contribute to the derived basket.
+ */
 async function upsertWithSanityCheck(
-  prices: Array<{ date: string; item: string; price_rm: number }>,
+  month: string,
+  prices: ObservedPrice[],
   supabase: any,
 ): Promise<{
   upserted: number;
   quarantined: number;
+  newestDate: string | null;
   auditSummary: { errorCount: number; warnCount: number; passed: boolean };
 }> {
   if (prices.length === 0) {
-    return { upserted: 0, quarantined: 0, auditSummary: { errorCount: 0, warnCount: 0, passed: true } };
+    return {
+      upserted: 0,
+      quarantined: 0,
+      newestDate: null,
+      auditSummary: { errorCount: 0, warnCount: 0, passed: true },
+    };
   }
 
-  // Run the sanity pipeline — quarantine errors, pass warnings
+  // 1. Validate + quarantine raw observations.
   const { cleanPrices, quarantinedItems, auditSummary } = await runSanityPipeline(prices, supabase);
 
-  // Upsert ONLY clean prices
-  if (cleanPrices.length > 0) {
-    for (let i = 0; i < cleanPrices.length; i += 500) {
-      const chunk = cleanPrices.slice(i, i + 500);
-      const { error } = await supabase
-        .from("food_prices")
-        .upsert(chunk, { onConflict: "date,item" });
-      if (error) throw error;
-    }
+  // 2. Derive baskets from validated observations only.
+  const basketRows = await computeBaskets(month, cleanPrices, supabase);
+
+  const fetchedAt = new Date().toISOString();
+  const sourceUrl = csvUrlForMonth(month);
+
+  const itemRows = cleanPrices.map((p) => ({
+    date: p.date,
+    item: p.item,
+    price_rm: p.price_rm,
+    source_type: SOURCE_TYPE,
+    source_url: sourceUrl,
+    source_file_month: month,
+    unit: PLAUSIBLE_RANGES[p.item]?.unit ?? null,
+    mapping_version: MAPPING_VERSION,
+    observation_count: p.observation_count ?? null,
+    fetched_at: fetchedAt,
+  }));
+
+  const derivedRows = basketRows.map((b) => ({
+    date: b.date,
+    item: "basket",
+    price_rm: b.price_rm,
+    source_type: "derived_basket",
+    source_url: sourceUrl,
+    source_file_month: month,
+    unit: "weighted index (RM)",
+    mapping_version: MAPPING_VERSION,
+    observation_count: b.observation_count,
+    fetched_at: fetchedAt,
+  }));
+
+  const allRows = [...itemRows, ...derivedRows];
+
+  for (let i = 0; i < allRows.length; i += 500) {
+    const chunk = allRows.slice(i, i + 500);
+    const { error } = await supabase
+      .from("food_prices")
+      .upsert(chunk, { onConflict: "date,item" });
+    if (error) throw error;
   }
 
-  console.log(`Upsert complete: ${cleanPrices.length} clean, ${quarantinedItems.length} quarantined`);
+  const newestDate = cleanPrices.reduce<string | null>(
+    (max, p) => (max === null || p.date > max ? p.date : max),
+    null,
+  );
 
-  return { upserted: cleanPrices.length, quarantined: quarantinedItems.length, auditSummary };
+  console.log(
+    `Upsert complete for ${month}: ${itemRows.length} observations, ${derivedRows.length} derived baskets, ${quarantinedItems.length} quarantined`,
+  );
+
+  return {
+    upserted: allRows.length,
+    quarantined: quarantinedItems.length,
+    newestDate,
+    auditSummary,
+  };
 }
 
 // ── Main ──────────────────────────────────────────────────────────
