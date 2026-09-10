@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * Grocery catalogue.
  *
@@ -89,7 +91,7 @@ export function isItemId(value: unknown): value is ItemId {
  * CSS background properties for one atlas cell. The atlas is a 5x5 grid of equal
  * cells, so the sheet is scaled to 500% and shifted by column/4 and row/4.
  */
-export function atlasStyle(atlasIndex: number): React.CSSProperties {
+export function atlasStyle(atlasIndex: number): CSSProperties {
   const col = atlasIndex % ATLAS_COLUMNS;
   const row = Math.floor(atlasIndex / ATLAS_COLUMNS);
   return {
