@@ -6,154 +6,49 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Item mapping: DB name -> keywords to look for in scraped content
-const ITEMS: Record<string, string[]> = {
-  chicken: ["ayam", "chicken", "ayam bersih", "ayam standard"],
-  eggs: ["telur", "egg", "telur ayam", "telur gred"],
-  tomato: ["tomato", "tomatoes"],
-  longbeans: ["kacang panjang", "long bean"],
-  rice: ["beras", "rice", "beras tempatan"],
-  milk: ["susu", "milk", "susu segar"],
-  kangkung: ["kangkung", "kangkong", "water spinach"],
-  onion: ["bawang besar", "bawang", "onion"],
-  sugar: ["gula pasir", "gula", "sugar"],
-  cookingoil: ["minyak masak", "minyak sawit", "cooking oil", "palm oil"],
-};
-
+/**
+ * RETIRED — this function used to fill gaps with randomly generated prices.
+ * Generated numbers must never enter production data, so it now writes nothing.
+ * The only ingestion route is `sync-dosm`, which reads the official published
+ * PriceCatcher CSV downloads. Historical rows written by this function remain in
+ * the database for audit and are labelled `legacy_unverified`.
+ */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    // Auth check: require service role key in Authorization header
-    const authHeader = req.headers.get("Authorization");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    const today = new Date().toISOString().split("T")[0];
-    let results: Array<{ date: string; item: string; price_rm: number }> = [];
-
-    // Try Firecrawl scraping first
-    if (firecrawlKey) {
-      try {
-        console.log("Attempting to scrape KPDN PriceCatcher...");
-        const scrapeResponse = await fetch("https://api.firecrawl.dev/v1/scrape", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${firecrawlKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            url: "https://pricecatcher.kpdn.gov.my/",
-            formats: ["markdown"],
-            onlyMainContent: true,
-            waitFor: 3000,
-          }),
-        });
-
-        const scrapeData = await scrapeResponse.json();
-        const markdown = scrapeData?.data?.markdown || scrapeData?.markdown || "";
-
-        if (markdown) {
-          console.log("Scrape successful, parsing prices...");
-          for (const [item, keywords] of Object.entries(ITEMS)) {
-            for (const keyword of keywords) {
-              const regex = new RegExp(
-                `${keyword}[\\s\\S]{0,100}?(?:RM|rm)\\s*(\\d+\\.\\d{2})`,
-                "i"
-              );
-              const match = markdown.match(regex);
-              if (match) {
-                const price = parseFloat(match[1]);
-                if (price > 0 && price < 100) {
-                  results.push({ date: today, item, price_rm: price });
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        if (results.length > 0) {
-          console.log(`Extracted ${results.length} prices from scrape`);
-        } else {
-          console.log("No prices extracted from scrape, falling back...");
-        }
-      } catch (scrapeErr) {
-        console.error("Scrape failed:", scrapeErr);
-      }
-    }
-
-    // Fallback: Generate prices based on last known values with ±2% variance
-    if (results.length < Object.keys(ITEMS).length) {
-      console.log("Using fallback: generating from last known prices");
-
-      const { data: lastPrices } = await supabase
-        .from("food_prices")
-        .select("item, price_rm")
-        .neq("item", "basket")
-        .order("date", { ascending: false })
-        .limit(Object.keys(ITEMS).length);
-
-      if (lastPrices && lastPrices.length > 0) {
-        const existingItems = new Set(results.map((r) => r.item));
-
-        for (const last of lastPrices) {
-          if (!existingItems.has(last.item)) {
-            const variance = (Math.random() - 0.5) * 0.04;
-            const newPrice = Math.round(last.price_rm * (1 + variance) * 100) / 100;
-            results.push({ date: today, item: last.item, price_rm: newPrice });
-          }
-        }
-      }
-    }
-
-    // Calculate basket total
-    const basketTotal = results.reduce((sum, r) => sum + r.price_rm, 0);
-    if (basketTotal > 0) {
-      results.push({
-        date: today,
-        item: "basket",
-        price_rm: Math.round(basketTotal * 100) / 100,
-      });
-    }
-
-    // Upsert into database
-    if (results.length > 0) {
-      const { error } = await supabase
-        .from("food_prices")
-        .upsert(results, { onConflict: "date,item" });
-
-      if (error) throw error;
-    }
-
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
     return new Response(
-      JSON.stringify({
-        success: true,
-        itemsScraped: results.length,
-        method: results.length > 0 ? "scrape+fallback" : "no_data",
-        prices: results,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Scraper error:", error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
+
+  try {
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+    await supabase.from("ingestion_runs").insert({
+      function_name: "scrape-prices",
+      action: "retired",
+      status: "rejected",
+      error: "Synthetic price writer retired; no data written.",
+    });
+  } catch (_e) {
+    // Logging the refusal must never be the reason a caller sees a 500.
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: false,
+      retired: true,
+      wrote: 0,
+      error:
+        "scrape-prices has been retired. It previously generated synthetic prices. Use sync-dosm, which ingests the official published PriceCatcher CSV.",
+      officialIngestion: "sync-dosm",
+      source: "https://data.gov.my/data-catalogue/pricecatcher",
+    }),
+    { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });

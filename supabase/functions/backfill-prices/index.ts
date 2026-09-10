@@ -6,127 +6,50 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+/**
+ * RETIRED — this function used to fabricate historical prices from a base price
+ * plus a compound trend and sine-wave noise. Fabricated history must never enter
+ * production data, so it now writes nothing.
+ *
+ * Historical backfill is done by `sync-dosm` with `{"action":"sync","months":[...]}`,
+ * which reads the official published PriceCatcher CSV for each month.
+ */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    // Auth check: require service role key in Authorization header
-    const authHeader = req.headers.get("Authorization");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
-    // Base prices (Feb 2024 baseline) — per kg or per unit as labeled
-    const basePrices: Record<string, number> = {
-      chicken: 5.95,
-      eggs: 10.5,
-      tomato: 4.5,
-      longbeans: 4.0,
-      rice: 14.5,
-      milk: 9.8,
-      kangkung: 3.5,
-      onion: 3.8,
-      sugar: 2.85,
-      cookingoil: 6.9,
-    };
-
-    // Item-specific monthly inflation rates for realism
-    const monthlyRates: Record<string, number> = {
-      chicken: 0.01,
-      eggs: 0.015,
-      tomato: 0.018,
-      longbeans: 0.012,
-      rice: 0.008,
-      milk: 0.011,
-      kangkung: 0.014,
-      onion: 0.016,
-      sugar: 0.005,
-      cookingoil: 0.01,
-    };
-
-    const startDate = new Date("2024-02-01");
-    const endDate = new Date();
-    const allPrices: Array<{ date: string; item: string; price_rm: number }> = [];
-
-    const currentDate = new Date(startDate);
-    let dayIndex = 0;
-
-    while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split("T")[0];
-      const monthsSinceStart =
-        (currentDate.getFullYear() - startDate.getFullYear()) * 12 +
-        (currentDate.getMonth() - startDate.getMonth());
-
-      let basketTotal = 0;
-
-      for (const [item, basePrice] of Object.entries(basePrices)) {
-        const rate = monthlyRates[item];
-        // Compound monthly inflation + daily noise ±3%
-        const trendPrice = basePrice * Math.pow(1 + rate, monthsSinceStart);
-        const noise = (Math.sin(dayIndex * 0.7 + item.length) * 0.015) + 
-                      (Math.cos(dayIndex * 1.3 + item.length * 2) * 0.015);
-        const finalPrice = Math.round(trendPrice * (1 + noise) * 100) / 100;
-
-        allPrices.push({ date: dateStr, item, price_rm: finalPrice });
-        basketTotal += finalPrice;
-      }
-
-      // Basket = sum of all items
-      allPrices.push({
-        date: dateStr,
-        item: "basket",
-        price_rm: Math.round(basketTotal * 100) / 100,
-      });
-
-      currentDate.setDate(currentDate.getDate() + 1);
-      dayIndex++;
-    }
-
-    // Batch upsert in chunks of 500
-    const chunkSize = 500;
-    let inserted = 0;
-
-    for (let i = 0; i < allPrices.length; i += chunkSize) {
-      const chunk = allPrices.slice(i, i + chunkSize);
-      const { error } = await supabase
-        .from("food_prices")
-        .upsert(chunk, { onConflict: "date,item" });
-
-      if (error) {
-        console.error(`Chunk ${i} error:`, error.message);
-        throw error;
-      }
-      inserted += chunk.length;
-    }
-
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
     return new Response(
-      JSON.stringify({
-        success: true,
-        recordsInserted: inserted,
-        dateRange: {
-          start: startDate.toISOString().split("T")[0],
-          end: endDate.toISOString().split("T")[0],
-        },
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Backfill error:", error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
+
+  try {
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, serviceRoleKey);
+    await supabase.from("ingestion_runs").insert({
+      function_name: "backfill-prices",
+      action: "retired",
+      status: "rejected",
+      error: "Synthetic history generator retired; no data written.",
+    });
+  } catch (_e) {
+    // Logging the refusal must never be the reason a caller sees a 500.
+  }
+
+  return new Response(
+    JSON.stringify({
+      success: false,
+      retired: true,
+      wrote: 0,
+      error:
+        "backfill-prices has been retired. It previously generated synthetic history. Use sync-dosm with {\"action\":\"sync\",\"months\":[\"YYYY-MM\"]} to ingest official monthly data.",
+      officialIngestion: "sync-dosm",
+      source: "https://data.gov.my/data-catalogue/pricecatcher",
+    }),
+    { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });
