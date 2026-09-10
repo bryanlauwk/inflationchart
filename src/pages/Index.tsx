@@ -241,7 +241,7 @@ const Index = () => {
           <p className="py-32 text-center text-lg text-muted-foreground">{g("common.loading", lang)}</p>
         ) : (
           <>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
               <div className="min-w-0 space-y-4">
                 <HeroScene
                   basket={basket}
