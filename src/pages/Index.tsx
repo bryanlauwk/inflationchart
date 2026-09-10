@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Printer, Share2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { g } from "@/lib/gameTranslations";
+import { g, type GameKey } from "@/lib/gameTranslations";
 import { PRESETS, type ItemId } from "@/lib/catalogue";
 import {
   computeBasket,
@@ -194,7 +194,7 @@ const Index = () => {
                     className="min-h-[5rem] w-full rounded-2xl border-2 border-border bg-card p-4 text-left transition-colors hover:border-primary"
                   >
                     <span className="block font-serif text-lg font-bold text-foreground">
-                      {g(`preset.${preset.id}` as never, lang)}
+                      {g(`preset.${preset.id}` as GameKey, lang)}
                     </span>
                     <span className="mt-1 block text-sm text-muted-foreground">
                       {preset.items.length} {g("editor.itemsIn", lang)}
