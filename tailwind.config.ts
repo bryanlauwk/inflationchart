@@ -19,8 +19,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        serif: ['"Noto Serif TC"', "Georgia", "serif"],
-        sans: ['"Noto Sans TC"', "system-ui", "sans-serif"],
+        serif: ['"Fraunces"', '"Noto Serif TC"', "Georgia", "serif"],
+        sans: ['"Karla"', '"Noto Sans TC"', "system-ui", "sans-serif"],
+        receipt: ['"Courier Prime"', "ui-monospace", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -72,6 +73,15 @@ export default {
         "price-green": "hsl(var(--price-green))",
         "price-blue": "hsl(var(--price-blue))",
         "price-red": "hsl(var(--price-red))",
+        mustard: "hsl(var(--mustard))",
+        teal: "hsl(var(--teal))",
+        vermilion: "hsl(var(--vermilion))",
+        jade: "hsl(var(--jade))",
+        ink: "hsl(var(--ink))",
+        paper: "hsl(var(--paper))",
+        receipt: "hsl(var(--receipt))",
+        up: "hsl(var(--up))",
+        down: "hsl(var(--down))",
       },
       borderRadius: {
         lg: "var(--radius)",

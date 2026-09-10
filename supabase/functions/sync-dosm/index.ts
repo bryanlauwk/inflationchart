@@ -6,6 +6,24 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Provenance ────────────────────────────────────────────────────
+const PRICECATCHER_BASE = "https://storage.data.gov.my/pricecatcher/";
+const SOURCE_TYPE = "pricecatcher_csv";
+const MAPPING_VERSION = "2026.02-itemmap-v2";
+
+function csvUrlForMonth(month: string): string {
+  return `${PRICECATCHER_BASE}pricecatcher_${month}.csv`;
+}
+
+/** A validated daily average for one item, with its contributing observation count. */
+interface ObservedPrice {
+  date: string;
+  item: string;
+  price_rm: number;
+  observation_count?: number;
+}
+
+
 // ── Item code mapping ─────────────────────────────────────────────
 const ITEM_MAP: Record<string, { codes: number[]; divisor: number }> = {
   chicken:    { codes: [1],    divisor: 1 },
@@ -360,19 +378,18 @@ Please provide your independent assessment using web search for current Malaysia
 // ══════════════════════════════════════════════════════════════════
 
 async function runSanityPipeline(
-  allPrices: Array<{ date: string; item: string; price_rm: number }>,
+  allPrices: ObservedPrice[],
   supabase: any,
 ): Promise<{
-  cleanPrices: Array<{ date: string; item: string; price_rm: number }>;
+  cleanPrices: ObservedPrice[];
   quarantinedItems: Array<{ date: string; item: string; price_rm: number; reason: string }>;
   auditSummary: { errorCount: number; warnCount: number; passed: boolean };
 }> {
-  // Separate basket from individual items
+  // Only raw observations reach this stage — derived baskets are computed later.
   const individualPrices = allPrices.filter((p) => p.item !== "basket");
-  const basketPrices = allPrices.filter((p) => p.item === "basket");
 
   if (individualPrices.length === 0) {
-    return { cleanPrices: allPrices, quarantinedItems: [], auditSummary: { errorCount: 0, warnCount: 0, passed: true } };
+    return { cleanPrices: [], quarantinedItems: [], auditSummary: { errorCount: 0, warnCount: 0, passed: true } };
   }
 
   // Find latest date for these prices
@@ -420,7 +437,10 @@ async function runSanityPipeline(
 
   console.log(`Sanity Layer 1: ${internalFlags.length} flags (${errorCount} errors, ${warnCount} warnings)`);
 
-  // ── Quarantine: separate error items from clean items ──
+  // ── Quarantine: hold back ONLY the flagged observations ──
+  // The flags are computed against the latest observed date, so quarantining is
+  // scoped to that date. Earlier observations of the same item are unrelated and
+  // must not be discarded because today's reading looked odd.
   const errorItems = new Set(
     internalFlags
       .filter((f) => f.severity === "error" && f.item !== "_dataset")
@@ -428,22 +448,19 @@ async function runSanityPipeline(
   );
 
   const quarantinedItems: Array<{ date: string; item: string; price_rm: number; reason: string }> = [];
-  const cleanPrices: Array<{ date: string; item: string; price_rm: number }> = [];
+  const cleanPrices: ObservedPrice[] = [];
 
   for (const p of individualPrices) {
-    if (errorItems.has(p.item)) {
+    if (errorItems.has(p.item) && p.date === latestDate) {
       const reasons = internalFlags
         .filter((f) => f.item === p.item && f.severity === "error")
         .map((f) => f.message)
         .join("; ");
-      quarantinedItems.push({ ...p, reason: reasons });
+      quarantinedItems.push({ date: p.date, item: p.item, price_rm: p.price_rm, reason: reasons });
     } else {
       cleanPrices.push(p);
     }
   }
-
-  // Basket prices always pass through (they're computed, not raw)
-  cleanPrices.push(...basketPrices);
 
   console.log(`Sanity pipeline: ${cleanPrices.length} clean, ${quarantinedItems.length} quarantined`);
 
@@ -504,31 +521,21 @@ function subtractDays(dateStr: string, days: number): string {
 
 // ── CSV Processing ────────────────────────────────────────────────
 
+/**
+ * Streams the official monthly PriceCatcher CSV and folds it into daily
+ * per-item averages. Streaming keeps memory bounded — the file is never held
+ * in one string and never split into a full line array.
+ */
 async function processMonthCSV(
   month: string,
-  supabase: any
-): Promise<Array<{ date: string; item: string; price_rm: number }>> {
-  const url = `https://storage.data.gov.my/pricecatcher/pricecatcher_${month}.csv`;
+  _supabase: any,
+): Promise<ObservedPrice[]> {
+  const url = csvUrlForMonth(month);
   console.log(`Fetching: ${url}`);
 
   const resp = await fetch(url);
-  if (!resp.ok) {
+  if (!resp.ok || !resp.body) {
     console.warn(`CSV not available for ${month}: ${resp.status}`);
-    return [];
-  }
-
-  const text = await resp.text();
-  const lines = text.split("\n");
-
-  const header = lines[0]?.split(",").map((h) => h.trim().toLowerCase());
-  if (!header) return [];
-
-  const dateIdx = header.indexOf("date");
-  const itemCodeIdx = header.indexOf("item_code");
-  const priceIdx = header.indexOf("price");
-
-  if (dateIdx === -1 || itemCodeIdx === -1 || priceIdx === -1) {
-    console.error(`Bad header for ${month}:`, header.join(","));
     return [];
   }
 
@@ -536,26 +543,40 @@ async function processMonthCSV(
   let matched = 0;
   let rejected = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line || line.length < 5) continue;
+  let dateIdx = -1;
+  let itemCodeIdx = -1;
+  let priceIdx = -1;
+  let headerSeen = false;
+
+  const handleLine = (line: string) => {
+    if (!line) return;
+    if (!headerSeen) {
+      const header = line.split(",").map((h) => h.trim().toLowerCase());
+      dateIdx = header.indexOf("date");
+      itemCodeIdx = header.indexOf("item_code");
+      priceIdx = header.indexOf("price");
+      headerSeen = true;
+      return;
+    }
+    if (dateIdx === -1 || itemCodeIdx === -1 || priceIdx === -1) return;
 
     const parts = line.split(",");
     const itemCode = parseInt(parts[itemCodeIdx], 10);
-    if (!ALL_CODES.has(itemCode)) continue;
+    if (!ALL_CODES.has(itemCode)) return;
 
     const date = parts[dateIdx]?.trim();
     const price = parseFloat(parts[priceIdx]);
-    if (!date || isNaN(price) || price <= 0) continue;
+    if (!date || isNaN(price) || price <= 0) return;
 
     const mapping = CODE_TO_ITEM.get(itemCode)!;
     const normalizedPrice = price / mapping.divisor;
 
+    // Premise-level implausibility filter (data-entry noise), not a trend filter.
     const ceiling = MAX_PRICE[mapping.item] ?? 500;
     const floor = MIN_PRICE[mapping.item] ?? 0;
     if (normalizedPrice > ceiling || normalizedPrice < floor) {
       rejected++;
-      continue;
+      return;
     }
 
     matched++;
@@ -563,27 +584,40 @@ async function processMonthCSV(
     if (!acc[key]) acc[key] = { sum: 0, count: 0 };
     acc[key].sum += normalizedPrice;
     acc[key].count += 1;
-  }
+  };
 
-  console.log(`${month}: matched ${matched} records, rejected ${rejected} outliers`);
-
-  // ── Step 1: Compute individual item daily averages ──
-  const rawResults: Array<{ date: string; item: string; price_rm: number }> = [];
-  const itemPriceByDate: Record<string, Record<string, number>> = {};
-
-  for (const [key, { sum, count }] of Object.entries(acc)) {
-    const [date, item] = key.split("|");
-    const avgPrice = Math.round((sum / count) * 100) / 100;
-    rawResults.push({ date, item, price_rm: avgPrice });
-
-    if (BASKET_ITEMS.has(item)) {
-      if (!itemPriceByDate[date]) itemPriceByDate[date] = {};
-      itemPriceByDate[date][item] = avgPrice;
+  const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) !== -1) {
+      handleLine(buffer.slice(0, nl).replace(/\r$/, ""));
+      buffer = buffer.slice(nl + 1);
     }
   }
+  if (buffer.trim()) handleLine(buffer.replace(/\r$/, ""));
 
-  // ── Step 1b: Day-over-day spike detection ──
-  const SPIKE_THRESHOLD = 0.60;
+  console.log(
+    `${month}: matched ${matched} raw observations, rejected ${rejected} implausible premise records`,
+  );
+
+  // Daily per-item averages, keeping the number of contributing observations.
+  const rawResults: ObservedPrice[] = [];
+  for (const [key, { sum, count }] of Object.entries(acc)) {
+    const [date, item] = key.split("|");
+    rawResults.push({
+      date,
+      item,
+      price_rm: Math.round((sum / count) * 100) / 100,
+      observation_count: count,
+    });
+  }
+
+  // Day-over-day spike detection: a >60% jump that immediately reverts is noise.
+  const SPIKE_THRESHOLD = 0.6;
   const byItem: Record<string, Array<{ date: string; price: number; idx: number }>> = {};
   for (let i = 0; i < rawResults.length; i++) {
     const r = rawResults[i];
@@ -597,35 +631,43 @@ async function processMonthCSV(
     for (let i = 1; i < entries.length; i++) {
       const prev = entries[i - 1].price;
       const curr = entries[i].price;
-      if (prev > 0) {
-        const changePct = Math.abs(curr - prev) / prev;
-        if (changePct > SPIKE_THRESHOLD) {
-          const next = entries[i + 1];
-          if (next) {
-            const revertPct = Math.abs(next.price - prev) / prev;
-            if (revertPct < SPIKE_THRESHOLD) {
-              console.log(`Spike detected: ${item} on ${entries[i].date} (${prev} → ${curr} → ${next.price})`);
-              spikeRejected.add(entries[i].idx);
-              if (BASKET_ITEMS.has(item)) {
-                delete itemPriceByDate[entries[i].date]?.[item];
-              }
-            }
-          }
-        }
+      if (prev <= 0) continue;
+      if (Math.abs(curr - prev) / prev <= SPIKE_THRESHOLD) continue;
+      const next = entries[i + 1];
+      if (!next) continue;
+      if (Math.abs(next.price - prev) / prev < SPIKE_THRESHOLD) {
+        console.log(`Spike detected: ${item} on ${entries[i].date}`);
+        spikeRejected.add(entries[i].idx);
       }
     }
   }
 
-  const results: Array<{ date: string; item: string; price_rm: number }> = [];
-  for (let i = 0; i < rawResults.length; i++) {
-    if (!spikeRejected.has(i)) results.push(rawResults[i]);
-  }
-
+  const results = rawResults.filter((_, i) => !spikeRejected.has(i));
   if (spikeRejected.size > 0) {
     console.log(`${month}: rejected ${spikeRejected.size} day-over-day spikes`);
   }
 
-  // ── Step 2: Load previous month's basket item prices from DB ──
+  return results;
+}
+
+/**
+ * Derives the weighted basket index for a month from VALIDATED observations only.
+ * Anything quarantined upstream can never reach this function, so a rejected raw
+ * value can never enter a basket total.
+ */
+async function computeBaskets(
+  month: string,
+  validated: ObservedPrice[],
+  supabase: any,
+): Promise<Array<{ date: string; price_rm: number; observation_count: number }>> {
+  const itemPriceByDate: Record<string, Record<string, number>> = {};
+  for (const p of validated) {
+    if (!BASKET_ITEMS.has(p.item)) continue;
+    if (!itemPriceByDate[p.date]) itemPriceByDate[p.date] = {};
+    itemPriceByDate[p.date][p.item] = p.price_rm;
+  }
+
+  // Load the tail of the previous month so the rolling window works at month edges.
   const monthFirstDay = `${month}-01`;
   const lookbackStart = subtractDays(monthFirstDay, ROLLING_WINDOW_DAYS);
 
@@ -638,19 +680,19 @@ async function processMonthCSV(
     .order("date", { ascending: true });
 
   if (prevMonthData && prevMonthData.length > 0) {
-    console.log(`${month}: loaded ${prevMonthData.length} previous-month basket item prices for rolling window`);
     for (const row of prevMonthData) {
       if (!itemPriceByDate[row.date]) itemPriceByDate[row.date] = {};
-      itemPriceByDate[row.date][row.item] = row.price_rm;
+      if (itemPriceByDate[row.date][row.item] == null) {
+        itemPriceByDate[row.date][row.item] = row.price_rm;
+      }
     }
   }
 
-  // ── Step 3: Compute weighted basket with rolling window ──
-  const currentMonthDates = [...new Set(results.map((r) => r.date))].sort();
+  const currentMonthDates = [...new Set(validated.map((r) => r.date))].sort();
   const BASKET_ITEM_LIST = [...BASKET_ITEMS];
 
-  let basketEmitted = 0;
-  let basketSkipped = 0;
+  const baskets: Array<{ date: string; price_rm: number; observation_count: number }> = [];
+  let skipped = 0;
 
   for (const date of currentMonthDates) {
     const resolved: Record<string, number> = {};
@@ -670,26 +712,21 @@ async function processMonthCSV(
       for (const [item, price] of Object.entries(resolved)) {
         weightedSum += price * (BASKET_WEIGHTS[item] ?? 1);
       }
-      results.push({
+      baskets.push({
         date,
-        item: "basket",
         price_rm: Math.round(weightedSum * 100) / 100,
+        observation_count: BASKET_ITEMS.size,
       });
-      basketEmitted++;
     } else {
-      const missing = BASKET_ITEM_LIST.filter((i) => !resolved[i]);
-      basketSkipped++;
-      if (basketSkipped <= 3) {
-        console.log(`Skipping basket for ${date}: missing [${missing.join(", ")}] in ${ROLLING_WINDOW_DAYS}-day window`);
-      }
+      skipped++;
     }
   }
 
   console.log(
-    `${month} basket: ${basketEmitted} emitted, ${basketSkipped} skipped (require all ${BASKET_ITEMS.size} items in ${ROLLING_WINDOW_DAYS}-day window)`
+    `${month} basket: ${baskets.length} derived from validated data, ${skipped} skipped (incomplete ${ROLLING_WINDOW_DAYS}-day window)`,
   );
 
-  return results;
+  return baskets;
 }
 
 // ── CPI Sync ─────────────────────────────────────────────────────
@@ -752,146 +789,261 @@ async function syncCPI(
 // ── UPSERT WITH SANITY PIPELINE ──────────────────────────────────
 // ══════════════════════════════════════════════════════════════════
 
+/**
+ * Order matters: raw observations are validated and quarantined FIRST, and only
+ * the surviving observations are allowed to contribute to the derived basket.
+ */
 async function upsertWithSanityCheck(
-  prices: Array<{ date: string; item: string; price_rm: number }>,
+  month: string,
+  prices: ObservedPrice[],
   supabase: any,
 ): Promise<{
   upserted: number;
   quarantined: number;
+  newestDate: string | null;
   auditSummary: { errorCount: number; warnCount: number; passed: boolean };
 }> {
   if (prices.length === 0) {
-    return { upserted: 0, quarantined: 0, auditSummary: { errorCount: 0, warnCount: 0, passed: true } };
+    return {
+      upserted: 0,
+      quarantined: 0,
+      newestDate: null,
+      auditSummary: { errorCount: 0, warnCount: 0, passed: true },
+    };
   }
 
-  // Run the sanity pipeline — quarantine errors, pass warnings
+  // 1. Validate + quarantine raw observations.
   const { cleanPrices, quarantinedItems, auditSummary } = await runSanityPipeline(prices, supabase);
 
-  // Upsert ONLY clean prices
-  if (cleanPrices.length > 0) {
-    for (let i = 0; i < cleanPrices.length; i += 500) {
-      const chunk = cleanPrices.slice(i, i + 500);
-      const { error } = await supabase
-        .from("food_prices")
-        .upsert(chunk, { onConflict: "date,item" });
-      if (error) throw error;
-    }
+  // 2. Derive baskets from validated observations only.
+  const basketRows = await computeBaskets(month, cleanPrices, supabase);
+
+  const fetchedAt = new Date().toISOString();
+  const sourceUrl = csvUrlForMonth(month);
+
+  const itemRows = cleanPrices.map((p) => ({
+    date: p.date,
+    item: p.item,
+    price_rm: p.price_rm,
+    source_type: SOURCE_TYPE,
+    source_url: sourceUrl,
+    source_file_month: month,
+    unit: PLAUSIBLE_RANGES[p.item]?.unit ?? null,
+    mapping_version: MAPPING_VERSION,
+    observation_count: p.observation_count ?? null,
+    fetched_at: fetchedAt,
+  }));
+
+  const derivedRows = basketRows.map((b) => ({
+    date: b.date,
+    item: "basket",
+    price_rm: b.price_rm,
+    source_type: "derived_basket",
+    source_url: sourceUrl,
+    source_file_month: month,
+    unit: "weighted index (RM)",
+    mapping_version: MAPPING_VERSION,
+    observation_count: b.observation_count,
+    fetched_at: fetchedAt,
+  }));
+
+  const allRows = [...itemRows, ...derivedRows];
+
+  for (let i = 0; i < allRows.length; i += 500) {
+    const chunk = allRows.slice(i, i + 500);
+    const { error } = await supabase
+      .from("food_prices")
+      .upsert(chunk, { onConflict: "date,item" });
+    if (error) throw error;
   }
 
-  console.log(`Upsert complete: ${cleanPrices.length} clean, ${quarantinedItems.length} quarantined`);
+  const newestDate = cleanPrices.reduce<string | null>(
+    (max, p) => (max === null || p.date > max ? p.date : max),
+    null,
+  );
 
-  return { upserted: cleanPrices.length, quarantined: quarantinedItems.length, auditSummary };
+  console.log(
+    `Upsert complete for ${month}: ${itemRows.length} observations, ${derivedRows.length} derived baskets, ${quarantinedItems.length} quarantined`,
+  );
+
+  return {
+    upserted: allRows.length,
+    quarantined: quarantinedItems.length,
+    newestDate,
+    auditSummary,
+  };
 }
 
 // ── Main ──────────────────────────────────────────────────────────
+
+/**
+ * Two accepted callers, both authenticated:
+ *  1. Service-role bearer token (manual / internal invocation).
+ *  2. pg_cron, which sends a shared secret held in Supabase Vault. The value is
+ *     never written to SQL, the repo or logs — it is generated inside the DB and
+ *     compared through a SECURITY DEFINER function restricted to service_role.
+ */
+async function isAuthorized(req: Request, supabase: any): Promise<boolean> {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const authHeader = req.headers.get("Authorization");
+  if (authHeader && authHeader === `Bearer ${serviceRoleKey}`) return true;
+
+  const cronSecret = req.headers.get("x-pipeline-secret");
+  if (cronSecret) {
+    const { data, error } = await supabase.rpc("verify_pipeline_cron_secret", {
+      candidate: cronSecret,
+    });
+    if (error) console.error("Scheduler secret verification failed:", error.message);
+    if (data === true) return true;
+  }
+  return false;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    // Auth check: require service role key in Authorization header
-    const authHeader = req.headers.get("Authorization");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (!authHeader || authHeader !== `Bearer ${serviceRoleKey}`) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+  const startedAt = Date.now();
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      serviceRoleKey
+  if (!(await isAuthorized(req, supabase))) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
+  }
 
-    let body: Record<string, unknown> = {};
-    try { body = await req.json(); } catch { /* no body */ }
+  let body: Record<string, unknown> = {};
+  try { body = await req.json(); } catch { /* no body */ }
 
-    const action = (body.action as string) || "sync";
+  const rawAction = (body.action as string) || "sync";
+  // "refresh" is the scheduled entry point: current + previous official month + CPI.
+  const action = rawAction === "refresh" ? "full" : rawAction;
+
+  const { data: runRow } = await supabase
+    .from("ingestion_runs")
+    .insert({
+      function_name: "sync-dosm",
+      action,
+      status: "running",
+      source_type: SOURCE_TYPE,
+      source_url: PRICECATCHER_BASE,
+    })
+    .select("id")
+    .maybeSingle();
+  const runId = (runRow as any)?.id ?? null;
+
+  const finishRun = async (patch: Record<string, unknown>) => {
+    if (!runId) return;
+    await supabase
+      .from("ingestion_runs")
+      .update({ duration_ms: Date.now() - startedAt, ...patch })
+      .eq("id", runId);
+  };
+
+  try {
     const results: Record<string, unknown> = {};
+    let newestSourceDate: string | null = null;
+    let grandUpserted = 0;
+    let grandQuarantined = 0;
+    const monthsProcessed: string[] = [];
 
-    // ── CPI ──
+    const runMonths = async (months: string[]) => {
+      const monthResults: Record<string, unknown> = {};
+      let lastAudit: { errorCount: number; warnCount: number; passed: boolean } | null = null;
+
+      for (const month of months) {
+        const prices = await processMonthCSV(month, supabase);
+        const { upserted, quarantined, auditSummary, newestDate } =
+          await upsertWithSanityCheck(month, prices, supabase);
+        grandUpserted += upserted;
+        grandQuarantined += quarantined;
+        monthsProcessed.push(month);
+        if (newestDate && (!newestSourceDate || newestDate > newestSourceDate)) {
+          newestSourceDate = newestDate;
+        }
+        monthResults[month] = { upserted, quarantined, newestDate };
+        lastAudit = auditSummary;
+      }
+
+      return { monthResults, lastAudit };
+    };
+
     if (action === "cpi") {
       results.cpi = await syncCPI(supabase);
     }
 
-    // ── Full sync: prices (current + previous month) + CPI ──
     if (action === "full") {
       const d = new Date();
       const curMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const pm = new Date(d.getFullYear(), d.getMonth() - 1, 1);
       const prevMonth = `${pm.getFullYear()}-${String(pm.getMonth() + 1).padStart(2, "0")}`;
 
-      const months = [prevMonth, curMonth];
-      let totalUpserted = 0;
-      let totalQuarantined = 0;
-      const monthResults: Record<string, unknown> = {};
-      let lastAudit: { errorCount: number; warnCount: number; passed: boolean } | null = null;
-
-      for (const month of months) {
-        const prices = await processMonthCSV(month, supabase);
-        const { upserted, quarantined, auditSummary } = await upsertWithSanityCheck(prices, supabase);
-        totalUpserted += upserted;
-        totalQuarantined += quarantined;
-        monthResults[month] = { upserted, quarantined };
-        lastAudit = auditSummary;
-      }
-
-      results.prices = { totalUpserted, totalQuarantined, months: monthResults };
+      const { monthResults, lastAudit } = await runMonths([prevMonth, curMonth]);
+      results.prices = {
+        totalUpserted: grandUpserted,
+        totalQuarantined: grandQuarantined,
+        months: monthResults,
+      };
       results.sanityCheck = lastAudit;
       results.cpi = await syncCPI(supabase);
     }
 
-    // ── Sync prices for specific months ──
     if (action === "sync") {
       const months = (body.months as string[]) || [body.month as string].filter(Boolean);
       if (months.length === 0) {
         const d = new Date();
         months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
       }
-
       months.sort();
 
-      let totalUpserted = 0;
-      let totalQuarantined = 0;
-      const monthResults: Record<string, unknown> = {};
-      let lastAudit: { errorCount: number; warnCount: number; passed: boolean } | null = null;
-
-      for (const month of months) {
-        const prices = await processMonthCSV(month, supabase);
-        const { upserted, quarantined, auditSummary } = await upsertWithSanityCheck(prices, supabase);
-        totalUpserted += upserted;
-        totalQuarantined += quarantined;
-        monthResults[month] = { upserted, quarantined };
-        lastAudit = auditSummary;
-      }
-
-      results.prices = { totalUpserted, totalQuarantined, months: monthResults };
+      const { monthResults, lastAudit } = await runMonths(months);
+      results.prices = {
+        totalUpserted: grandUpserted,
+        totalQuarantined: grandQuarantined,
+        months: monthResults,
+      };
       results.sanityCheck = lastAudit;
     }
 
-    // ── Clear ──
     if (action === "clear") {
-      await supabase.from("food_prices").delete().gte("date", "2000-01-01");
-      await supabase.from("indicators").delete().gte("date", "2000-01-01");
-      await supabase.from("quarantined_prices").delete().gte("date", "2000-01-01");
-      results.cleared = true;
+      // Retired: destructive bulk deletes are no longer available from this endpoint.
+      // Historical rows are preserved for audit; anomalies go to quarantined_prices.
+      await finishRun({ status: "rejected", error: "clear action retired" });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error:
+            "The 'clear' action has been retired. Historical observations are preserved for audit; use quarantine review instead.",
+        }),
+        { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
+    await finishRun({
+      status: "success",
+      rows_upserted: grandUpserted,
+      rows_quarantined: grandQuarantined,
+      newest_source_date: newestSourceDate,
+      source_month: monthsProcessed[monthsProcessed.length - 1] ?? null,
+      checkpoint: { months: monthsProcessed, action },
+    });
+
     return new Response(
-      JSON.stringify({ success: true, ...results }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: true, runId, newestSourceDate, ...results }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
-    console.error("sync-dosm error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("sync-dosm error:", message);
+    await finishRun({ status: "error", error: message });
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: false, runId, error: message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
