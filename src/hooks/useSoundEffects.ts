@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, type MutableRefObject } from "react";
 
 type SoundName = "add" | "remove" | "tick" | "reveal";
 
@@ -7,12 +7,14 @@ interface AudioHandle {
   master: GainNode;
 }
 
-function getAudioHandle(ref: React.MutableRefObject<AudioHandle | null>): AudioHandle | null {
+function getAudioHandle(ref: MutableRefObject<AudioHandle | null>): AudioHandle | null {
   if (typeof window === "undefined") return null;
   if (ref.current) return ref.current;
 
   try {
-    const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    const AudioContextCtor =
+      window.AudioContext ||
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextCtor) return null;
     const context = new AudioContextCtor();
     const master = context.createGain();
@@ -25,7 +27,13 @@ function getAudioHandle(ref: React.MutableRefObject<AudioHandle | null>): AudioH
   }
 }
 
-function tone(handle: AudioHandle, frequency: number, duration: number, delay = 0, type: OscillatorType = "sine") {
+function tone(
+  handle: AudioHandle,
+  frequency: number,
+  duration: number,
+  delay = 0,
+  type: OscillatorType = "sine",
+) {
   const start = handle.context.currentTime + delay;
   const oscillator = handle.context.createOscillator();
   const gain = handle.context.createGain();
@@ -43,28 +51,31 @@ function tone(handle: AudioHandle, frequency: number, duration: number, delay = 
 export function useSoundEffects(enabled: boolean) {
   const audioRef = useRef<AudioHandle | null>(null);
 
-  const play = useCallback((name: SoundName) => {
-    if (!enabled) return;
-    const handle = getAudioHandle(audioRef);
-    if (!handle) return;
+  const play = useCallback(
+    (name: SoundName) => {
+      if (!enabled) return;
+      const handle = getAudioHandle(audioRef);
+      if (!handle) return;
 
-    void handle.context.resume().catch(() => undefined);
+      void handle.context.resume().catch(() => undefined);
 
-    if (name === "add") {
-      tone(handle, 520, 0.12, 0, "triangle");
-      tone(handle, 740, 0.16, 0.08, "triangle");
-    } else if (name === "remove") {
-      tone(handle, 420, 0.11, 0, "sine");
-      tone(handle, 280, 0.14, 0.07, "sine");
-    } else if (name === "tick") {
-      tone(handle, 610, 0.06, 0, "square");
-    } else {
-      tone(handle, 392, 0.18, 0, "triangle");
-      tone(handle, 523, 0.2, 0.12, "triangle");
-      tone(handle, 659, 0.28, 0.25, "triangle");
-      tone(handle, 784, 0.34, 0.42, "sine");
-    }
-  }, [enabled]);
+      if (name === "add") {
+        tone(handle, 520, 0.12, 0, "triangle");
+        tone(handle, 740, 0.16, 0.08, "triangle");
+      } else if (name === "remove") {
+        tone(handle, 420, 0.11, 0, "sine");
+        tone(handle, 280, 0.14, 0.07, "sine");
+      } else if (name === "tick") {
+        tone(handle, 610, 0.06, 0, "square");
+      } else {
+        tone(handle, 392, 0.18, 0, "triangle");
+        tone(handle, 523, 0.2, 0.12, "triangle");
+        tone(handle, 659, 0.28, 0.25, "triangle");
+        tone(handle, 784, 0.34, 0.42, "sine");
+      }
+    },
+    [enabled],
+  );
 
   return {
     playAdd: useCallback(() => play("add"), [play]),
