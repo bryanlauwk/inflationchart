@@ -51,9 +51,12 @@ export function HeroScene({
   const { lang } = useLanguage();
   const selectedIds = new Set(basket.map((line) => line.id));
   const hotspotIds = new Set(hotspotData.map((h) => h.id));
-  const quickPicks = ALL_ITEM_IDS.filter(
-    (id) => !hotspotIds.has(id) && availableItems.has(id),
-  ).slice(0, 10);
+  const available = ALL_ITEM_IDS.filter((id) => availableItems.has(id));
+  // Hotspots are hidden on small screens, so keep them reachable in the strip.
+  const quickPicks = [
+    ...available.filter((id) => hotspotIds.has(id)),
+    ...available.filter((id) => !hotspotIds.has(id)),
+  ].slice(0, 14);
 
   return (
     <section className="relative min-h-[68svh] overflow-hidden rounded-[2rem] border-2 border-foreground/10 bg-foreground shadow-2xl shadow-foreground/10 lg:min-h-[78svh]">
@@ -167,7 +170,7 @@ export function HeroScene({
               {g("hero.build", lang)}
             </Button>
           </div>
-          <div className="flex items-center gap-3 text-sm font-medium text-paper/85">
+          <div className="hidden items-center gap-3 text-sm font-medium text-paper/85 sm:flex">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-paper/50">+</span>
             <span>{g("hero.tapHint", lang)}</span>
           </div>
