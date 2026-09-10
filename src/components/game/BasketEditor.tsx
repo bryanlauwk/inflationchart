@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { Minus, Plus, Search, Trash2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -21,7 +22,6 @@ import { cn } from "@/lib/utils";
 interface BasketEditorProps {
   basket: BasketLine[];
   onChange: (basket: BasketLine[]) => void;
-  /** Items with no usable price history at all — shown but flagged. */
   availableItems: Set<ItemId>;
 }
 
@@ -58,9 +58,22 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
       aria-labelledby="basket-editor-heading"
       className="rounded-2xl border border-border bg-card p-4 ink-border md:p-6"
     >
-      <h2 id="basket-editor-heading" className="font-serif text-xl font-bold text-foreground">
-        {g("editor.pickGroceries", lang)}
-      </h2>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Build your scene</p>
+          <h2 id="basket-editor-heading" className="mt-1 font-serif text-xl font-bold text-foreground">
+            {g("editor.pickGroceries", lang)}
+          </h2>
+        </div>
+        <motion.div
+          key={basket.length}
+          initial={{ scale: 0.75, rotate: -6 }}
+          animate={{ scale: 1, rotate: 0 }}
+          className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-sm font-bold text-primary"
+        >
+          {basket.length} {g("editor.itemsIn", lang)}
+        </motion.div>
+      </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -79,9 +92,10 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label={g("editor.pickGroceries", lang)}>
           {(["all", ...CATEGORY_ORDER] as const).map((cat) => (
-            <button
+            <motion.button
               key={cat}
               type="button"
+              whileTap={{ scale: 0.94 }}
               onClick={() => setCategory(cat)}
               aria-pressed={category === cat}
               className={cn(
@@ -96,7 +110,7 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
                   ? "全部"
                   : "All"
                 : t(`category.${cat}` as TranslationKey, lang)}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -104,23 +118,33 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
       {filtered.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">{g("editor.noResults", lang)}</p>
       ) : (
-        <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {filtered.map((item) => {
+        <motion.ul layout className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {filtered.map((item, index) => {
             const qty = qtyById.get(item.id) ?? 0;
             const inBasket = qty > 0;
             const unavailable = !availableItems.has(item.id);
             const name = t(`item.${item.id}` as TranslationKey, lang);
 
             return (
-              <li
+              <motion.li
+                layout
                 key={item.id}
+                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.24, delay: Math.min(index * 0.025, 0.2) }}
+                whileHover={{ y: -4, rotate: index % 2 === 0 ? -0.5 : 0.5 }}
                 className={cn(
                   "flex flex-col rounded-xl border bg-background p-3 transition-colors",
-                  inBasket ? "border-primary" : "border-border",
+                  inBasket ? "border-primary bg-primary/[0.04] shadow-md shadow-primary/10" : "border-border",
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <GroceryThumb id={item.id} className="h-14 w-14" />
+                  <motion.div
+                    animate={inBasket ? { rotate: [0, -6, 6, 0], scale: [1, 1.08, 1] } : { rotate: 0, scale: 1 }}
+                    transition={{ duration: 0.35 }}
+                  >
+                    <GroceryThumb id={item.id} className="h-14 w-14" />
+                  </motion.div>
                   <div className="min-w-0">
                     <p className="truncate text-base font-bold text-foreground">{name}</p>
                     <p className="text-sm text-muted-foreground">
@@ -150,9 +174,14 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
                     >
                       <Minus className="h-4 w-4" aria-hidden="true" />
                     </Button>
-                    <span className="font-receipt text-base font-bold text-foreground">
+                    <motion.span
+                      key={qty}
+                      initial={{ scale: 1.25, color: "hsl(var(--vermilion))" }}
+                      animate={{ scale: 1, color: "hsl(var(--foreground))" }}
+                      className="font-receipt text-base font-bold"
+                    >
                       {formatQty(qty)} {item.unit}
-                    </span>
+                    </motion.span>
                     <Button
                       type="button"
                       variant="outline"
@@ -165,19 +194,21 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
                     </Button>
                   </div>
                 ) : (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="mt-3 h-11 w-full text-base"
-                    onClick={() => setQty(item.id, item.defaultQty)}
-                  >
-                    {g("editor.add", lang)} {name}
-                  </Button>
+                  <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} className="mt-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="h-11 w-full text-base"
+                      onClick={() => setQty(item.id, item.defaultQty)}
+                    >
+                      {g("editor.add", lang)} {name}
+                    </Button>
+                  </motion.div>
                 )}
-              </li>
+              </motion.li>
             );
           })}
-        </ul>
+        </motion.ul>
       )}
 
       {basket.length > 0 && (
@@ -186,15 +217,17 @@ export function BasketEditor({ basket, onChange, availableItems }: BasketEditorP
             <span className="font-bold text-foreground">{basket.length}</span>{" "}
             {g("editor.itemsIn", lang)}
           </p>
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-11 text-vermilion hover:text-vermilion"
-            onClick={() => onChange([])}
-          >
-            <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
-            {g("editor.clear", lang)}
-          </Button>
+          <motion.div whileTap={{ scale: 0.96 }}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 text-vermilion hover:text-vermilion"
+              onClick={() => onChange([])}
+            >
+              <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" />
+              {g("editor.clear", lang)}
+            </Button>
+          </motion.div>
         </div>
       )}
     </section>
