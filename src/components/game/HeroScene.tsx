@@ -77,7 +77,7 @@ export function HeroScene({
         aria-hidden="true"
         viewBox="0 0 100 100"
         preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 z-10 h-full w-full overflow-visible"
+        className="pointer-events-none absolute inset-0 z-10 hidden h-full w-full overflow-visible sm:block"
       >
         <Arrow d="M34 55 C38 57, 41 61, 43 64" />
         <Arrow d="M60 58 C60 61, 60 64, 60 66" />
