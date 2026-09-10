@@ -5,6 +5,7 @@ import { t, type TranslationKey } from "@/lib/translations";
 import { ITEM_BY_ID, type ItemId } from "@/lib/catalogue";
 import type { BasketLine } from "@/lib/basket";
 import { GroceryThumb } from "@/components/game/GroceryThumb";
+import { SceneStickers } from "@/components/game/SceneStickers";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -103,6 +104,7 @@ export function HeroScene({
           strokeWidth="0.25"
         />
       </svg>
+      <SceneStickers />
 
       <div className="relative z-10 flex min-h-[calc(100svh-5rem)] flex-col justify-between p-5 sm:p-8 lg:p-10">
         <div className="max-w-2xl">
