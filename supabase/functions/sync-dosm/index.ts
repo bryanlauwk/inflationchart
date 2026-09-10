@@ -504,31 +504,21 @@ function subtractDays(dateStr: string, days: number): string {
 
 // ── CSV Processing ────────────────────────────────────────────────
 
+/**
+ * Streams the official monthly PriceCatcher CSV and folds it into daily
+ * per-item averages. Streaming keeps memory bounded — the file is never held
+ * in one string and never split into a full line array.
+ */
 async function processMonthCSV(
   month: string,
-  supabase: any
-): Promise<Array<{ date: string; item: string; price_rm: number }>> {
-  const url = `https://storage.data.gov.my/pricecatcher/pricecatcher_${month}.csv`;
+  _supabase: any,
+): Promise<ObservedPrice[]> {
+  const url = csvUrlForMonth(month);
   console.log(`Fetching: ${url}`);
 
   const resp = await fetch(url);
-  if (!resp.ok) {
+  if (!resp.ok || !resp.body) {
     console.warn(`CSV not available for ${month}: ${resp.status}`);
-    return [];
-  }
-
-  const text = await resp.text();
-  const lines = text.split("\n");
-
-  const header = lines[0]?.split(",").map((h) => h.trim().toLowerCase());
-  if (!header) return [];
-
-  const dateIdx = header.indexOf("date");
-  const itemCodeIdx = header.indexOf("item_code");
-  const priceIdx = header.indexOf("price");
-
-  if (dateIdx === -1 || itemCodeIdx === -1 || priceIdx === -1) {
-    console.error(`Bad header for ${month}:`, header.join(","));
     return [];
   }
 
@@ -536,26 +526,40 @@ async function processMonthCSV(
   let matched = 0;
   let rejected = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line || line.length < 5) continue;
+  let dateIdx = -1;
+  let itemCodeIdx = -1;
+  let priceIdx = -1;
+  let headerSeen = false;
+
+  const handleLine = (line: string) => {
+    if (!line) return;
+    if (!headerSeen) {
+      const header = line.split(",").map((h) => h.trim().toLowerCase());
+      dateIdx = header.indexOf("date");
+      itemCodeIdx = header.indexOf("item_code");
+      priceIdx = header.indexOf("price");
+      headerSeen = true;
+      return;
+    }
+    if (dateIdx === -1 || itemCodeIdx === -1 || priceIdx === -1) return;
 
     const parts = line.split(",");
     const itemCode = parseInt(parts[itemCodeIdx], 10);
-    if (!ALL_CODES.has(itemCode)) continue;
+    if (!ALL_CODES.has(itemCode)) return;
 
     const date = parts[dateIdx]?.trim();
     const price = parseFloat(parts[priceIdx]);
-    if (!date || isNaN(price) || price <= 0) continue;
+    if (!date || isNaN(price) || price <= 0) return;
 
     const mapping = CODE_TO_ITEM.get(itemCode)!;
     const normalizedPrice = price / mapping.divisor;
 
+    // Premise-level implausibility filter (data-entry noise), not a trend filter.
     const ceiling = MAX_PRICE[mapping.item] ?? 500;
     const floor = MIN_PRICE[mapping.item] ?? 0;
     if (normalizedPrice > ceiling || normalizedPrice < floor) {
       rejected++;
-      continue;
+      return;
     }
 
     matched++;
@@ -563,27 +567,40 @@ async function processMonthCSV(
     if (!acc[key]) acc[key] = { sum: 0, count: 0 };
     acc[key].sum += normalizedPrice;
     acc[key].count += 1;
-  }
+  };
 
-  console.log(`${month}: matched ${matched} records, rejected ${rejected} outliers`);
-
-  // ── Step 1: Compute individual item daily averages ──
-  const rawResults: Array<{ date: string; item: string; price_rm: number }> = [];
-  const itemPriceByDate: Record<string, Record<string, number>> = {};
-
-  for (const [key, { sum, count }] of Object.entries(acc)) {
-    const [date, item] = key.split("|");
-    const avgPrice = Math.round((sum / count) * 100) / 100;
-    rawResults.push({ date, item, price_rm: avgPrice });
-
-    if (BASKET_ITEMS.has(item)) {
-      if (!itemPriceByDate[date]) itemPriceByDate[date] = {};
-      itemPriceByDate[date][item] = avgPrice;
+  const reader = resp.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += value;
+    let nl: number;
+    while ((nl = buffer.indexOf("\n")) !== -1) {
+      handleLine(buffer.slice(0, nl).replace(/\r$/, ""));
+      buffer = buffer.slice(nl + 1);
     }
   }
+  if (buffer.trim()) handleLine(buffer.replace(/\r$/, ""));
 
-  // ── Step 1b: Day-over-day spike detection ──
-  const SPIKE_THRESHOLD = 0.60;
+  console.log(
+    `${month}: matched ${matched} raw observations, rejected ${rejected} implausible premise records`,
+  );
+
+  // Daily per-item averages, keeping the number of contributing observations.
+  const rawResults: ObservedPrice[] = [];
+  for (const [key, { sum, count }] of Object.entries(acc)) {
+    const [date, item] = key.split("|");
+    rawResults.push({
+      date,
+      item,
+      price_rm: Math.round((sum / count) * 100) / 100,
+      observation_count: count,
+    });
+  }
+
+  // Day-over-day spike detection: a >60% jump that immediately reverts is noise.
+  const SPIKE_THRESHOLD = 0.6;
   const byItem: Record<string, Array<{ date: string; price: number; idx: number }>> = {};
   for (let i = 0; i < rawResults.length; i++) {
     const r = rawResults[i];
@@ -597,30 +614,18 @@ async function processMonthCSV(
     for (let i = 1; i < entries.length; i++) {
       const prev = entries[i - 1].price;
       const curr = entries[i].price;
-      if (prev > 0) {
-        const changePct = Math.abs(curr - prev) / prev;
-        if (changePct > SPIKE_THRESHOLD) {
-          const next = entries[i + 1];
-          if (next) {
-            const revertPct = Math.abs(next.price - prev) / prev;
-            if (revertPct < SPIKE_THRESHOLD) {
-              console.log(`Spike detected: ${item} on ${entries[i].date} (${prev} → ${curr} → ${next.price})`);
-              spikeRejected.add(entries[i].idx);
-              if (BASKET_ITEMS.has(item)) {
-                delete itemPriceByDate[entries[i].date]?.[item];
-              }
-            }
-          }
-        }
+      if (prev <= 0) continue;
+      if (Math.abs(curr - prev) / prev <= SPIKE_THRESHOLD) continue;
+      const next = entries[i + 1];
+      if (!next) continue;
+      if (Math.abs(next.price - prev) / prev < SPIKE_THRESHOLD) {
+        console.log(`Spike detected: ${item} on ${entries[i].date}`);
+        spikeRejected.add(entries[i].idx);
       }
     }
   }
 
-  const results: Array<{ date: string; item: string; price_rm: number }> = [];
-  for (let i = 0; i < rawResults.length; i++) {
-    if (!spikeRejected.has(i)) results.push(rawResults[i]);
-  }
-
+  const results = rawResults.filter((_, i) => !spikeRejected.has(i));
   if (spikeRejected.size > 0) {
     console.log(`${month}: rejected ${spikeRejected.size} day-over-day spikes`);
   }
