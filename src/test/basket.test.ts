@@ -92,10 +92,11 @@ describe("quiz", () => {
     ]);
   });
 
-  it("picks the bigger percentage mover", () => {
+  it("calls an equal move a tie with no winner", () => {
+    // eggs 0.4 -> 0.5 = +25%, chicken 8 -> 10 = +25%
     const pair = buildQuizPair(prices, "2022-01", "2026-01", () => ["chicken", "eggs"]);
-    expect(pair?.winner).toBe("eggs"); // +25% vs +25%? eggs 0.4->0.5 = 25%, chicken 8->10 = 25%
     expect(pair?.tie).toBe(true);
+    expect(pair?.winner).toBeNull();
   });
 
   it("reports a clear winner when the changes differ", () => {

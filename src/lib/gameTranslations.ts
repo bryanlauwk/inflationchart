@@ -167,6 +167,47 @@ const copy = {
   "common.back": { en: "Back", zh: "返回" },
   "common.startOver": { en: "Start over", zh: "重新开始" },
   "common.close": { en: "Close", zh: "关闭" },
+
+  "nav.soundOn": { en: "Sound on", zh: "音效开" },
+  "nav.soundOff": { en: "Sound off", zh: "音效关" },
+  "nav.soundToggleOn": { en: "Turn sound on", zh: "开启音效" },
+  "nav.soundToggleOff": { en: "Turn sound off", zh: "关闭音效" },
+
+  "hero.kicker": { en: "Malaysian grocery time machine", zh: "马来西亚杂货时光机" },
+  "hero.tapHint": {
+    en: "Tap a grocery in the scene to add it to your basket",
+    zh: "点击画面里的杂货，把它加入菜篮",
+  },
+  "hero.quickPick": { en: "More groceries", zh: "更多杂货" },
+  "hero.scroll": { en: "Scroll for the years", zh: "往下选年份" },
+  "hero.stickerJom": { en: "Jom, explore!", zh: "来，逛逛吧！" },
+  "hero.stickerMakan": { en: "Makan lokal, hidup bermakna", zh: "吃在地，活得有味" },
+  "hero.stickerSmall": { en: "Same little things. A fuller tomorrow.", zh: "同样的小事，更饱满的明天。" },
+  "item.inBasket": { en: "in your basket", zh: "已在菜篮" },
+  "item.tapAdd": { en: "tap to add", zh: "点击加入" },
+
+  "tray.kicker": { en: "Your scene", zh: "你的画面" },
+  "tray.title": { en: "Your basket", zh: "你的菜篮" },
+  "tray.emptyTitle": { en: "Your basket is waiting", zh: "菜篮还是空的" },
+  "tray.emptyHint": {
+    en: "Tap a grocery in the illustration, or open the editor to start picking.",
+    zh: "点击插画里的杂货，或者打开编辑器开始挑选。",
+  },
+  "tray.edit": { en: "Edit my basket", zh: "编辑菜篮" },
+  "tray.reveal": { en: "Reveal the result", zh: "揭晓结果" },
+  "tray.revealHint": { en: "Pick at least one grocery first", zh: "先挑至少一样杂货" },
+  "tray.priceHint": {
+    en: "Add groceries to see the price story.",
+    zh: "加入杂货后，这里会显示价格。",
+  },
+  "tray.itemCount": { en: "items", zh: "样" },
+
+  "steps.pick": { en: "Pick groceries", zh: "挑杂货" },
+  "steps.months": { en: "Choose months", zh: "选月份" },
+  "steps.reveal": { en: "Reveal", zh: "揭晓" },
+
+  "results.kicker": { en: "The full receipt", zh: "完整收据" },
+  "results.title": { en: "The price story, unpacked", zh: "价格故事的细节" },
 } as const;
 
 export type GameKey = keyof typeof copy;
