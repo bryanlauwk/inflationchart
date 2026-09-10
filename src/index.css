@@ -4,52 +4,59 @@
 
 @layer base {
   :root {
-    --background: 30 5% 5%;
-    --foreground: 40 10% 88%;
+    /* Warm parchment paper, dark espresso ink */
+    --background: 40 44% 94%;
+    --foreground: 24 30% 16%;
 
-    --card: 30 4% 8%;
-    --card-foreground: 40 10% 88%;
+    --card: 40 50% 97%;
+    --card-foreground: 24 30% 16%;
 
-    --popover: 30 4% 8%;
-    --popover-foreground: 40 10% 88%;
+    --popover: 40 50% 97%;
+    --popover-foreground: 24 30% 16%;
 
-    --primary: 15 55% 48%;
-    --primary-foreground: 40 10% 95%;
+    /* Jade green — actions */
+    --primary: 160 42% 28%;
+    --primary-foreground: 42 60% 96%;
 
-    --secondary: 30 4% 12%;
-    --secondary-foreground: 40 10% 88%;
+    --secondary: 38 38% 88%;
+    --secondary-foreground: 24 30% 16%;
 
-    --muted: 30 4% 14%;
-    --muted-foreground: 30 5% 50%;
+    --muted: 38 32% 89%;
+    --muted-foreground: 26 16% 40%;
 
-    --accent: 30 4% 14%;
-    --accent-foreground: 40 10% 88%;
+    /* Vermilion — highlights */
+    --accent: 12 76% 52%;
+    --accent-foreground: 42 60% 97%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 8 68% 46%;
+    --destructive-foreground: 42 60% 97%;
 
-    --border: 30 5% 18%;
-    --input: 30 5% 18%;
-    --ring: 15 55% 48%;
+    --border: 34 24% 80%;
+    --input: 34 24% 80%;
+    --ring: 160 42% 28%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --chart-bg: 30 5% 6%;
-    --chart-border: 30 5% 18%;
-    --chart-tooltip: 30 4% 8%;
+    /* Story accents */
+    --mustard: 40 78% 52%;
+    --teal: 186 44% 34%;
+    --vermilion: 12 76% 52%;
+    --jade: 160 42% 28%;
+    --ink: 24 30% 16%;
+    --paper: 40 44% 94%;
+    --receipt: 44 52% 97%;
 
-    --price-green: 142 71% 65%;
-    --price-blue: 217 91% 68%;
-    --price-red: 0 91% 71%;
+    --up: 8 68% 46%;
+    --down: 160 42% 30%;
 
-    --sidebar-background: 30 4% 8%;
-    --sidebar-foreground: 40 10% 88%;
-    --sidebar-primary: 15 55% 48%;
-    --sidebar-primary-foreground: 40 10% 95%;
-    --sidebar-accent: 30 4% 14%;
-    --sidebar-accent-foreground: 40 10% 88%;
-    --sidebar-border: 30 5% 18%;
-    --sidebar-ring: 15 55% 48%;
+    --sidebar-background: 40 44% 94%;
+    --sidebar-foreground: 24 30% 16%;
+    --sidebar-primary: 160 42% 28%;
+    --sidebar-primary-foreground: 42 60% 96%;
+    --sidebar-accent: 38 38% 88%;
+    --sidebar-accent-foreground: 24 30% 16%;
+    --sidebar-border: 34 24% 80%;
+    --sidebar-ring: 160 42% 28%;
   }
 }
 
@@ -60,6 +67,57 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: "Noto Sans TC", system-ui, sans-serif;
+    font-family: "Karla", "Noto Sans TC", system-ui, sans-serif;
+    font-size: 16px;
+    /* Soft ink-wash paper grain */
+    background-image:
+      radial-gradient(circle at 12% 18%, hsl(40 60% 88% / 0.7) 0, transparent 45%),
+      radial-gradient(circle at 88% 8%, hsl(38 54% 90% / 0.6) 0, transparent 40%),
+      radial-gradient(circle at 70% 92%, hsl(160 30% 88% / 0.45) 0, transparent 45%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3 {
+    font-family: "Fraunces", "Noto Serif TC", Georgia, serif;
+  }
+
+  :focus-visible {
+    outline: 3px solid hsl(var(--jade));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .font-receipt {
+    font-family: "Courier Prime", ui-monospace, "SFMono-Regular", monospace;
+  }
+
+  /* Torn paper receipt edge */
+  .receipt-edge {
+    -webkit-mask-image:
+      radial-gradient(circle at 6px -3px, transparent 6px, black 6.5px);
+    mask-image:
+      radial-gradient(circle at 6px -3px, transparent 6px, black 6.5px);
+    -webkit-mask-size: 12px 100%;
+    mask-size: 12px 100%;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+  }
+
+  .ink-border {
+    box-shadow:
+      0 1px 0 hsl(var(--ink) / 0.08),
+      0 10px 30px -18px hsl(var(--ink) / 0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
