@@ -4,17 +4,9 @@ import { Printer, Share2, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { g } from "@/lib/gameTranslations";
 import { ITEM_BY_ID, PRESETS, clampQty, type ItemId } from "@/lib/catalogue";
-import {
-  computeBasket,
-  sanitizeBasket,
-  type BasketLine,
-} from "@/lib/basket";
+import { computeBasket, sanitizeBasket, type BasketLine } from "@/lib/basket";
 import { decodeSelection, encodeSelection, loadStoredBasket, storeBasket } from "@/lib/share";
-import {
-  defaultMonthPair,
-  usableMonths,
-  useMonthlyPrices,
-} from "@/hooks/useMonthlyPrices";
+import { defaultMonthPair, usableMonths, useMonthlyPrices } from "@/hooks/useMonthlyPrices";
 import { HeroScene } from "@/components/game/HeroScene";
 import { BasketTray } from "@/components/game/BasketTray";
 import { BasketEditor } from "@/components/game/BasketEditor";
@@ -27,7 +19,6 @@ import { HowItWorks } from "@/components/game/HowItWorks";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-type Stage = "welcome" | "play";
 type Mode = "same-groceries" | "same-rm100";
 
 const Index = () => {
@@ -35,7 +26,6 @@ const Index = () => {
   const { data, isLoading, isError, refetch } = useMonthlyPrices();
 
   const initial = useRef(decodeSelection(window.location.search)).current;
-  const [stage, setStage] = useState<Stage>(initial.basket.length > 0 ? "play" : "welcome");
   const [basket, setBasket] = useState<BasketLine[]>(
     initial.basket.length > 0 ? initial.basket : loadStoredBasket(),
   );
@@ -73,7 +63,6 @@ const Index = () => {
   const startPreset = useCallback((presetId: string) => {
     const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
     setBasket(sanitizeBasket(preset.items));
-    setStage("play");
     setEditorOpen(false);
     setShowDetails(false);
   }, []);
@@ -84,7 +73,6 @@ const Index = () => {
       if (existing) return prev.filter((line) => line.id !== id);
       return [...prev, { id, qty: ITEM_BY_ID[id].defaultQty }];
     });
-    setStage("play");
   }, []);
 
   const changeQty = useCallback((id: ItemId, qty: number) => {
@@ -116,7 +104,6 @@ const Index = () => {
 
   const handleStartOver = useCallback(() => {
     setBasket([]);
-    setStage("welcome");
     setEditorOpen(false);
     setRevealOpen(false);
     setShowDetails(false);
@@ -139,7 +126,7 @@ const Index = () => {
       >
         <button
           type="button"
-          onClick={() => setStage("welcome")}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           className="font-serif text-2xl font-bold tracking-tight text-primary"
         >
           {g("nav.brand", lang)}
@@ -227,7 +214,6 @@ const Index = () => {
                   onQuickStart={() => startPreset("everyday")}
                   onBuildOwn={() => {
                     setBasket([]);
-                    setStage("play");
                     setEditorOpen(true);
                   }}
                 />
@@ -280,11 +266,7 @@ const Index = () => {
                         {g("common.close", lang)}
                       </Button>
                     </div>
-                    <BasketEditor
-                      basket={basket}
-                      onChange={setBasket}
-                      availableItems={availableItems}
-                    />
+                    <BasketEditor basket={basket} onChange={setBasket} availableItems={availableItems} />
                   </motion.div>
                 </motion.div>
               )}
@@ -328,11 +310,7 @@ const Index = () => {
                 <Receipt result={result} mode={mode} onModeChange={setMode} />
                 <div className="grid gap-6 lg:grid-cols-2">
                   <ChangedMost result={result} prices={data.prices} months={months} />
-                  <GuessGame
-                    prices={data.prices}
-                    baselineMonth={resolvedBaseline}
-                    comparisonMonth={resolvedComparison}
-                  />
+                  <GuessGame prices={data.prices} baselineMonth={resolvedBaseline} comparisonMonth={resolvedComparison} />
                 </div>
               </motion.section>
             )}
