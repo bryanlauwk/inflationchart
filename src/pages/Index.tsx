@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Printer, Share2, X } from "lucide-react";
+import { Printer, Share2, Volume2, VolumeX, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { g } from "@/lib/gameTranslations";
 import { ITEM_BY_ID, PRESETS, clampQty, type ItemId } from "@/lib/catalogue";
 import { computeBasket, sanitizeBasket, type BasketLine } from "@/lib/basket";
 import { decodeSelection, encodeSelection, loadStoredBasket, storeBasket } from "@/lib/share";
 import { defaultMonthPair, usableMonths, useMonthlyPrices } from "@/hooks/useMonthlyPrices";
+import { useSoundEffects } from "@/hooks/useSoundEffects";
 import { HeroScene } from "@/components/game/HeroScene";
 import { BasketTray } from "@/components/game/BasketTray";
 import { BasketEditor } from "@/components/game/BasketEditor";
@@ -35,6 +36,11 @@ const Index = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [revealOpen, setRevealOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("rm100-sound") !== "off";
+  });
+  const sounds = useSoundEffects(soundEnabled);
 
   const months = useMemo(() => usableMonths(data), [data]);
 
@@ -51,6 +57,10 @@ const Index = () => {
     storeBasket(basket);
   }, [basket]);
 
+  useEffect(() => {
+    window.localStorage.setItem("rm100-sound", soundEnabled ? "on" : "off");
+  }, [soundEnabled]);
+
   const availableItems = useMemo(() => new Set<ItemId>(data?.items ?? []), [data]);
   const resolvedBaseline = baselineMonth ?? months[0] ?? "";
   const resolvedComparison = comparisonMonth ?? months[months.length - 1] ?? "";
@@ -63,26 +73,38 @@ const Index = () => {
   const startPreset = useCallback((presetId: string) => {
     const preset = PRESETS.find((p) => p.id === presetId) ?? PRESETS[0];
     setBasket(sanitizeBasket(preset.items));
+    sounds.playAdd();
     setEditorOpen(false);
     setShowDetails(false);
-  }, []);
+  }, [sounds.playAdd]);
 
   const toggleSceneItem = useCallback((id: ItemId) => {
-    setBasket((prev) => {
-      const existing = prev.find((line) => line.id === id);
-      if (existing) return prev.filter((line) => line.id !== id);
-      return [...prev, { id, qty: ITEM_BY_ID[id].defaultQty }];
-    });
-  }, []);
+    const existing = basket.find((line) => line.id === id);
+    if (existing) {
+      setBasket((prev) => prev.filter((line) => line.id !== id));
+      sounds.playRemove();
+      return;
+    }
+    setBasket((prev) => [...prev, { id, qty: ITEM_BY_ID[id].defaultQty }]);
+    sounds.playAdd();
+  }, [basket, sounds.playAdd, sounds.playRemove]);
 
   const changeQty = useCallback((id: ItemId, qty: number) => {
+    const nextQty = clampQty(qty, ITEM_BY_ID[id].step);
     setBasket((prev) => {
-      const step = ITEM_BY_ID[id].step;
-      const nextQty = clampQty(qty, step);
       const without = prev.filter((line) => line.id !== id);
       return nextQty > 0 ? [...without, { id, qty: nextQty }] : without;
     });
-  }, []);
+    if (nextQty > 0) sounds.playTick();
+    else sounds.playRemove();
+  }, [sounds.playRemove, sounds.playTick]);
+
+  const handleEditorChange = useCallback((next: BasketLine[]) => {
+    if (next.length > basket.length) sounds.playAdd();
+    else if (next.length < basket.length) sounds.playRemove();
+    else sounds.playTick();
+    setBasket(next);
+  }, [basket.length, sounds.playAdd, sounds.playRemove, sounds.playTick]);
 
   const handleShare = useCallback(async () => {
     if (!resolvedBaseline || !resolvedComparison) return;
@@ -107,8 +129,9 @@ const Index = () => {
     setEditorOpen(false);
     setRevealOpen(false);
     setShowDetails(false);
+    sounds.playRemove();
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+  }, [sounds.playRemove]);
 
   const handleSeeDetails = useCallback(() => {
     setRevealOpen(false);
@@ -143,6 +166,16 @@ const Index = () => {
           >
             @bryanlauwk
           </a>
+          <button
+            type="button"
+            onClick={() => setSoundEnabled((value) => !value)}
+            aria-pressed={soundEnabled}
+            aria-label={soundEnabled ? "Turn sound off" : "Turn sound on"}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-3 py-2 font-medium text-foreground hover:border-primary"
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4" aria-hidden="true" /> : <VolumeX className="h-4 w-4" aria-hidden="true" />}
+            <span className="hidden sm:inline">{soundEnabled ? "Sound on" : "Sound off"}</span>
+          </button>
           <button
             type="button"
             onClick={toggleLang}
@@ -235,7 +268,10 @@ const Index = () => {
                 result={result}
                 onChangeQty={changeQty}
                 onOpenEditor={() => setEditorOpen(true)}
-                onReveal={() => setRevealOpen(true)}
+                onReveal={() => {
+                  sounds.playReveal();
+                  setRevealOpen(true);
+                }}
                 onStartOver={handleStartOver}
               />
             </div>
@@ -266,7 +302,7 @@ const Index = () => {
                         {g("common.close", lang)}
                       </Button>
                     </div>
-                    <BasketEditor basket={basket} onChange={setBasket} availableItems={availableItems} />
+                    <BasketEditor basket={basket} onChange={handleEditorChange} availableItems={availableItems} />
                   </motion.div>
                 </motion.div>
               )}
