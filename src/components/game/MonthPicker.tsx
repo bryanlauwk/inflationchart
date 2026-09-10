@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { g } from "@/lib/gameTranslations";
 import { formatMonth } from "@/lib/basket";
@@ -48,25 +49,44 @@ export function MonthPicker({
   };
 
   return (
-    <section
+    <motion.section
+      layout
       aria-labelledby="month-picker-heading"
       className="rounded-2xl border border-border bg-card p-4 ink-border md:p-6"
     >
-      <h2 id="month-picker-heading" className="font-serif text-xl font-bold text-foreground">
-        {g("time.title", lang)}
-      </h2>
-
-      <div className="mt-4 grid gap-6 md:grid-cols-2">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Time machine</p>
+          <h2 id="month-picker-heading" className="mt-1 font-serif text-xl font-bold text-foreground">
+            {g("time.title", lang)}
+          </h2>
+        </div>
+        <motion.div
+          key={`${baselineMonth}-${comparisonMonth}`}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="rounded-full bg-secondary px-3 py-1 font-receipt text-xs font-bold text-foreground"
+        >
+          {compIdx - baseIdx} {lang === "zh" ? "个月跨度" : "month jump"}
+        </motion.div>
+      </div>
+
+      <div className="mt-5 grid gap-6 md:grid-cols-2">
+        <motion.div layout>
           <label
             htmlFor="baseline-month"
             className="text-sm font-bold uppercase tracking-wide text-muted-foreground"
           >
             {g("time.baseline", lang)}
           </label>
-          <p className="mt-1 font-serif text-2xl text-foreground">
+          <motion.p
+            key={baselineMonth}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-1 font-serif text-2xl text-foreground"
+          >
             {formatMonth(baselineMonth, lang)}
-          </p>
+          </motion.p>
           <Slider
             id="baseline-month"
             className="mt-3"
@@ -78,18 +98,23 @@ export function MonthPicker({
             aria-label={g("time.baseline", lang)}
             aria-valuetext={formatMonth(baselineMonth, lang)}
           />
-        </div>
+        </motion.div>
 
-        <div>
+        <motion.div layout>
           <label
             htmlFor="comparison-month"
             className="text-sm font-bold uppercase tracking-wide text-muted-foreground"
           >
             {g("time.comparison", lang)}
           </label>
-          <p className="mt-1 font-serif text-2xl text-foreground">
+          <motion.p
+            key={comparisonMonth}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-1 font-serif text-2xl text-foreground"
+          >
             {formatMonth(comparisonMonth, lang)}
-          </p>
+          </motion.p>
           <Slider
             id="comparison-month"
             className="mt-3"
@@ -101,7 +126,7 @@ export function MonthPicker({
             aria-label={g("time.comparison", lang)}
             aria-valuetext={formatMonth(comparisonMonth, lang)}
           />
-        </div>
+        </motion.div>
       </div>
 
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
@@ -116,6 +141,6 @@ export function MonthPicker({
           </>
         ) : null}
       </p>
-    </section>
+    </motion.section>
   );
 }
